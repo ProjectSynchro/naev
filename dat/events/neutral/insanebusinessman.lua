@@ -1,7 +1,6 @@
 --[[
 <?xml version='1.0' encoding='utf8'?>
  <event name="Insane Businessman">
-  <lua>neutral/insanebusinessman</lua>
   <flags>
    <unique />
   </flags>
