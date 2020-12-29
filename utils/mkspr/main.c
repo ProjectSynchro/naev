@@ -52,7 +52,6 @@ static int write_png( const char *file_name, png_bytep *rows, int w, int h,
 int main(int argc, char* argv[])
 {
 	int i, ws, hs;
-	unsigned int sflags;
 	char file[8];
 	SDL_Surface *final, *temp, **load;
 	SDL_Rect r;
@@ -86,16 +85,12 @@ int main(int argc, char* argv[])
 	/* load all the images to ram */
 	for (i=0; i<(ws*hs); i++) {
 		/* names will be 000.png, 001.png, ..., 035.png, ... etc... */
-		sprintf( file, "%d%d%d.png", i/100, (i%100)/10, i%10 );
+		sprintf( file, "%d%d%d.png", (unsigned char)i/100, (unsigned char)(i%100)/10, (unsigned char)i%10 );
 
 		/* load the image properly */
 		temp = IMG_Load( file );
 		if (temp == NULL) ERR("Problem loading file '%s': %s", file, IMG_GetError());
-		sflags = temp->flags & (SDL_SRCALPHA | SDL_SRCCOLORKEY);
-		if(sflags & SDL_SRCALPHA)
-			SDL_SetAlpha(temp, 0, SDL_ALPHA_OPAQUE);
-		if(sflags & SDL_SRCCOLORKEY)
-			SDL_SetColorKey(temp, 0, temp->format->colorkey);
+		SDL_SetSurfaceBlendMode(temp, SDL_BLENDMODE_NONE);
 		load[i] = temp;
 
 		/* check to see if size has changed */
@@ -108,7 +103,7 @@ int main(int argc, char* argv[])
 
 		/* create the surface if it hasn't been created yet */
 		if (!final) {
-			final = SDL_CreateRGBSurface( SDL_SWSURFACE | SDL_SRCALPHA, ws*r.w, hs*r.h,
+			final = SDL_CreateRGBSurface( 0, ws*r.w, hs*r.h,
 					load[i]->format->BitsPerPixel, RGBAMASK );
 			if (!final)
             ERR("Problem creating RGB Surface: %s", SDL_GetError());
@@ -153,9 +148,6 @@ static int SavePNG( SDL_Surface *surface, const char *file)
 	int alpha = 0;
 	int pixel_bits = 32;
 
-	unsigned surf_flags;
-	unsigned surf_alpha;
-
 	ss_rows = 0;
 	ss_size = 0;
 	ss_surface = 0;
@@ -170,19 +162,14 @@ static int SavePNG( SDL_Surface *surface, const char *file)
 		pixel_bits = 24;
 	}
 
-	ss_surface = SDL_CreateRGBSurface( SDL_SWSURFACE | SDL_SRCALPHA, ss_w, ss_h,
+	ss_surface = SDL_CreateRGBSurface( 0, ss_w, ss_h,
 			pixel_bits, RGBAMASK );
 
 	if( ss_surface == 0 ) {
 		return -1;
 	}
 
-	surf_flags = surface->flags & (SDL_SRCALPHA | SDL_SRCCOLORKEY);
-	surf_alpha = surface->format->alpha;
-	if(surf_flags & SDL_SRCALPHA)
-		SDL_SetAlpha(surface, 0, SDL_ALPHA_OPAQUE);
-	if(surf_flags & SDL_SRCCOLORKEY)
-		SDL_SetColorKey(surface, 0, surface->format->colorkey);
+	SDL_SetSurfaceBlendMode(surface, SDL_BLENDMODE_NONE);
 
 	ss_rect.x = 0;
 	ss_rect.y = 0;
@@ -197,10 +184,7 @@ static int SavePNG( SDL_Surface *surface, const char *file)
 			return -1;
 		}
 	}
-	if ( surf_flags & SDL_SRCALPHA )
-		SDL_SetAlpha(surface, SDL_SRCALPHA, (Uint8)surf_alpha);
-	if ( surf_flags & SDL_SRCCOLORKEY )
-		SDL_SetColorKey(surface, SDL_SRCCOLORKEY, surface->format->colorkey);
+	SDL_SetSurfaceBlendMode(surface, SDL_BLENDMODE_NONE);
 
 	for (i = 0; i < ss_h; i++) {
 		ss_rows[i] = ((unsigned char*)ss_surface->pixels) + i * ss_surface->pitch;
@@ -219,6 +203,11 @@ static int SavePNG( SDL_Surface *surface, const char *file)
 	return r;
 }
 
+static void warning( const char *msg )
+{
+	WARN( "Write_png: could not %s", msg );
+}
+
 static int write_png( const char *file_name, png_bytep *rows, int w, int h,
 		int colortype, int bitdepth )
 {
@@ -226,20 +215,21 @@ static int write_png( const char *file_name, png_bytep *rows, int w, int h,
 	png_structp png_ptr;
 	png_infop info_ptr;
 	FILE *fp = NULL;
-	char *doing = "open for writing";
 
-	if (!(fp = fopen(file_name, "wb")))
-      goto fail;
+	if (!(fp = fopen(file_name, "wb"))) {
+      warning( "open for writing" );
+      return -1;
+   }
 
-	doing = "create png write struct";
-	if (!(png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL)))
-		goto fail;
+	if (!(png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL))) {
+      warning( "create png write struct" );
+      return -1;
+   }
 
-	doing = "create png info struct";
-	if (!(info_ptr = png_create_info_struct(png_ptr)))
-      goto fail;
-	if (setjmp(png_jmpbuf(png_ptr)))
-      goto fail;
+	if (!(info_ptr = png_create_info_struct(png_ptr)) || setjmp(png_jmpbuf(png_ptr))) {
+      warning( "create png info struct" );
+      return -1;
+   }
 
 	/*doing = "init IO";*/
 	png_init_io(png_ptr, fp);
@@ -258,15 +248,12 @@ static int write_png( const char *file_name, png_bytep *rows, int w, int h,
 	/*doing = "write end";*/
 	png_write_end(png_ptr, NULL);
 
-	doing = "closing file";
-	if(0 != fclose(fp))
-      goto fail;
+	if (0 != fclose(fp)) {
+      warning( "closing file" );
+      return -1;
+   }
 
 	return 0;
-
-fail:
-	WARN( "Write_png: could not %s", doing );
-	return -1;
 }
 
 

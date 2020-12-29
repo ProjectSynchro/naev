@@ -1,11 +1,13 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <ship name="Pirate Rhino">
  <base_type>Rhino</base_type>
  <GFX sx="10" sy="10">rhino_pirate</GFX>
- <GUI>slim</GUI>
+ <rarity>2</rarity>
+ <GUI>brushed</GUI>
  <sound>engine</sound>
  <class>Armoured Transport</class>
  <price>1500000</price>
+ <time_mod>1.5</time_mod>
  <fabricator>Skull and Bones</fabricator>
  <description>The traditional Skull and Bones refit has left the Rhino substantially more manoeuvrable, though somewhat less armoured. Exploiting its large cargo bay and durability, the Rhino has become an excellent scavenger ship.</description>
  <health>
@@ -20,20 +22,21 @@
   <cargo>90</cargo>
  </characteristics>
  <slots>
-  <weapon size="large" x="25" y="-3" h="4"/>
-  <weapon size="large" x="25" y="3" h="4"/>
-  <weapon size="medium" x="-15" y="-3" h="4"/>
-  <weapon size="medium" x="-15" y="3" h="4"/>
+  <weapon size="large" x="25" y="-3" h="4" />
+  <weapon size="large" x="25" y="3" h="4" />
+  <weapon size="medium" x="-15" y="-3" h="4" />
+  <weapon size="medium" x="-15" y="3" h="4" />
   <utility size="medium" prop="systems" exclusive="1" required="1">Previous Generation Medium Systems</utility>
-  <utility size="medium"/>
-  <utility size="medium"/>
-  <utility size="medium"/>
+  <utility size="medium" prop="accessory" exclusive="1" />
+  <utility size="medium" />
+  <utility size="medium" />
+  <utility size="medium" />
   <structure size="medium" prop="engines" exclusive="1" required="1">Beat Up Medium Engine</structure>
   <structure size="medium" prop="hull" exclusive="1" required="1">Patchwork Medium Plating</structure>
-  <structure size="medium"/>
-  <structure size="medium"/>
-  <structure size="medium"/>
-  <structure size="medium"/>
+  <structure size="medium" />
+  <structure size="medium" />
+  <structure size="medium" />
+  <structure size="medium" />
  </slots>
  <stats>
   <speed_mod>10</speed_mod>

@@ -7,6 +7,7 @@
 #  define PLAYER_H
 
 
+#include "nstring.h"
 #include "pilot.h"
 
 /** Player flag enum. */
@@ -25,13 +26,11 @@ enum {
    PLAYER_CREATING,     /**< player is being created */
    PLAYER_AUTONAV,      /**< player has autonavigation on. */
    PLAYER_NOLAND,       /**< player is not allowed to land (cleared on enter). */
-   PLAYER_DOUBLESPEED,  /**< player is running at double speed. */
    PLAYER_CINEMATICS_GUI, /**< Disable rendering the GUI when in cinematics mode. */
    PLAYER_CINEMATICS_2X, /**< Disables usage of the 2x button when in cinematics mode. */
    PLAYER_HOOK_LAND,    /**< Hook hack to avoid running hooks in the middle of the pilot stack. */
    PLAYER_HOOK_JUMPIN,  /**< Hook hack to avoid running hooks in the middle of the pilot stack. */
    PLAYER_HOOK_HYPER,   /**< Hook hack to avoid runving hooks in the middle of the pilot stack. */
-   PLAYER_TUTORIAL,     /**< Player is doing the tutorial. */
    PLAYER_MFLY,         /**< Player has enabled mouse flying. */
    PLAYER_NOSAVE,       /**< Player is not allowed to save. */
    PLAYER_FLAGS_MAX     /* Maximum number of flags. */
@@ -39,13 +38,11 @@ enum {
 
 typedef char PlayerFlags[ PLAYER_FLAGS_MAX ];
 
+
 /* flag functions */
 #define player_isFlag(f)   (player.flags[f])
 #define player_setFlag(f)  (player.flags[f] = 1)
 #define player_rmFlag(f)   (player.flags[f] = 0)
-
-/* comfort flags. */
-#define player_isTut()     player_isFlag(PLAYER_TUTORIAL)
 
 
 /* Control restoration reasons. */
@@ -67,20 +64,27 @@ typedef struct Player_s {
    /* Player intrinsics. */
    Pilot *p; /**< Player's pilot. */
    char *name; /**< Player's name. */
+   double dt_mod; /**< Static modifier of dt applied to the game as a whole. */
    char *gui; /**< Player's GUI. */
    int guiOverride; /**< GUI is overridden (not default). */
 
    /* Player data. */
    PlayerFlags flags; /**< Player's flags. */
    int enemies; /**< Amount of enemies the player has. */
+   int disabled_enemies; /**< Amount of enemies that are disabled. */
    double crating; /**< Combat rating. */
    int autonav; /**< Current autonav state. */
    Vector2d autonav_pos; /**< Target autonav position. */
    char *autonavmsg; /**< String to print on arrival. */
+   char autonavcol; /**< Colour for autonav target description (e.g., hostile). */
    double tc_max; /**< Maximum time compression value (bounded by ship speed or conf setting). */
    double autonav_timer; /**< Timer that prevents time accel after a reset. */
    double mousex; /**< Mouse X position (for mouse flying). */
    double mousey; /**< Mouse Y position (for mouse flying). */
+   double speed; /**< Gameplay speed modifier, multiplies the ship base speed. */
+
+   /* Loaded game version. */
+   char *loaded_version; /**< Version of the loaded save game. */
 } Player_t;
 
 
@@ -98,7 +102,6 @@ typedef struct PlayerOutfit_s {
  */
 typedef struct PlayerShip_s {
    Pilot* p;      /**< Pilot. */
-   char *loc;     /**< Location. */
    int autoweap;  /**< Automatically update weapon sets. */
 } PlayerShip_t;
 
@@ -128,7 +131,6 @@ extern int snd_hypJump; /**< Hyperspace jump sound. */
  */
 int player_init (void);
 void player_new (void);
-void player_newTutorial (void);
 Pilot* player_newShip( Ship* ship, const char *def_name,
       int trade, int noname );
 void player_cleanup (void);
@@ -149,12 +151,13 @@ void player_render( double dt );
  * Message stuff, in gui.c
  */
 void player_messageToggle( int enable );
-void player_message( const char *fmt, ... );
+PRINTF_FORMAT( 1, 2 )void player_message( const char *fmt, ... );
 void player_messageRaw ( const char *str );
 
 /*
  * misc
  */
+void player_resetSpeed (void);
 void player_restoreControl( int reason, char *str );
 void player_checkLandAck (void);
 void player_nolandMsg( const char *str );
@@ -177,23 +180,23 @@ void player_soundResume (void);
  * player ships
  */
 int player_ships( char** sships, glTexture** tships );
+void player_shipsSort (void);
 const PlayerShip_t* player_getShipStack( int *n );
 int player_nships (void);
-int player_hasShip( char* shipname );
-Pilot* player_getShip( char* shipname );
-char* player_getLoc( char* shipname );
-void player_setLoc( char* shipname, char* loc );
-void player_swapShip( char* shipname );
-credits_t player_shipPrice( char* shipname );
-void player_rmShip( char* shipname );
+int                 player_hasShip( const char *shipname );
+Pilot *             player_getShip( const char *shipname );
+void                player_swapShip( const char *shipname );
+credits_t           player_shipPrice( const char *shipname );
+void                player_rmShip( const char *shipname );
 
 
 /*
  * player outfits.
  */
 int player_outfitOwned( const Outfit *o );
+int player_outfitOwnedTotal( const Outfit* o );
 const PlayerOutfit_t* player_getOutfits( int *n );
-int player_getOutfitsFiltered( Outfit **outfits, glTexture **toutfits,
+int player_getOutfitsFiltered( Outfit **outfits,
       int(*filter)( const Outfit *o ), char *name );
 int player_numOutfits (void);
 int player_addOutfit( const Outfit *o, int quantity );
@@ -217,7 +220,7 @@ int player_eventAlreadyDone( int id );
 /*
  * licenses
  */
-void player_addLicense( char *license );
+NONNULL( 1 ) void player_addLicense( char *license );
 int player_hasLicense( char *license );
 char **player_getLicenses( int *nlicenses );
 
@@ -225,7 +228,6 @@ char **player_getLicenses( int *nlicenses );
 /*
  * escorts
  */
-void player_clearEscorts (void);
 int player_addEscorts (void);
 
 
@@ -240,6 +242,7 @@ void player_updateSpecific( Pilot *pplayer, const double dt );
 void player_brokeHyperspace (void);
 void player_hyperspacePreempt( int );
 int player_getHypPreempt(void);
+double player_dt_default (void);
 
 /*
  * Targeting.
@@ -249,6 +252,8 @@ void player_targetClear (void);
 /* Planets. */
 void player_targetPlanetSet( int id );
 void player_targetPlanet (void);
+/* Asteroids. */
+void player_targetAsteroidSet( int id_field, int id );
 /* Hyperspace. */
 void player_targetHyperspaceSet( int id );
 void player_targetHyperspace (void);
@@ -263,7 +268,7 @@ void player_targetEscort( int prev );
 /*
  * keybind actions
  */
-void player_weapSetPress( int id, int type, int repeat );
+void player_weapSetPress( int id, double value, int repeat );
 void player_land (void);
 int player_jump (void);
 void player_screenshot (void);

@@ -12,11 +12,15 @@ last = "idle"
 
 -- Faction-specific songs.
 factional = {
-   Collective = { "collective1", "collective2", "automat" },
-   Empire     = { "empire1", "empire2" },
-   Sirius     = { "sirius1", "sirius2" },
-   Dvaered    = { "dvaered1", "dvaered2" },
-   ["Za'lek"] = { "zalek1", "zalek2" } 
+   Collective = { "collective1", "automat" },
+   Pirate     = { "pirate1_theme1", "pirates_orchestra", "ambient4",
+                  "terminal" },
+   Empire     = { "empire1", "empire2"; add_neutral = true },
+   Sirius     = { "sirius1", "sirius2"; add_neutral = true },
+   Dvaered    = { "dvaered1", "dvaered2"; add_neutral = true },
+   ["Za'lek"] = { "zalek1", "zalek2"; add_neutral = true },
+   Thurion    = { "motherload", "dark_city", "ambient1", "ambient3" },
+   Proteron   = { "heartofmachine", "imminent_threat", "ambient4" },
 }
 
 function choose( str )
@@ -30,6 +34,20 @@ function choose( str )
       ["ambient"] = choose_ambient,
       ["combat"]  = choose_combat
    }
+
+   -- Don't change or play music if a mission or event doesn't want us to
+   if var.peek( "music_off" ) then
+      return
+   end
+
+   -- Allow restricting play of music until a song finishes
+   if var.peek( "music_wait" ) then
+      if music.isPlaying() then
+         return
+      else
+         var.pop( "music_wait" )
+      end
+   end
 
    -- Means to only change song if needed
    if str == nil then
@@ -165,6 +183,7 @@ ambient_neutral  = { "ambient2", "mission",
 --]]
 function choose_ambient ()
    local force = true
+   local add_neutral = false
 
    -- Check to see if we want to update
    if music.isPlaying() then
@@ -187,21 +206,27 @@ function choose_ambient ()
    -- Get information about the current system
    local sys                  = system.cur()
    local factions             = sys:presences()
-   local faction              = sys:faction()
-   if faction then
-      faction = faction:name()
-   end
    local nebu_dens, nebu_vol  = sys:nebula()
 
-   -- Check to see if changing faction zone
-   if faction ~= last_sysFaction then
-      -- Table must not be empty
-      if next(factions) ~= nil then
-         force = true
+   local strongest = var.peek("music_ambient_force")
+   if strongest == nil then
+      if factions then
+         local strongest_amount = 0
+         for k, v in pairs( factions ) do
+            if v > strongest_amount then
+               strongest = k
+               strongest_amount = v
+            end
+         end
       end
+   end
+
+   -- Check to see if changing faction zone
+   if strongest ~= last_sysFaction then
+      force = true
 
       if force then
-         last_sysFaction = faction
+         last_sysFaction = strongest
       end
    end
 
@@ -217,11 +242,9 @@ function choose_ambient ()
       -- Choose the music, bias by faction first
       local add_neutral = false
       local neutral_prob = 0.6
-      if factional[faction] then
-         ambient = factional[faction]
-         if faction ~= "Collective" then
-            add_neutral = true
-         end
+      if strongest ~= nil and factional[strongest] then
+         ambient = factional[strongest]
+         add_neutral = factional[strongest].add_neutral
       elseif nebu then
          ambient = { "ambient1", "ambient3" }
          add_neutral = true
@@ -249,7 +272,20 @@ function choose_ambient ()
       end
 
       -- Load music and play
-      music.load( ambient[ rnd.rnd(1,#ambient) ] )
+      local new_track = ambient[ rnd.rnd(1,#ambient) ]
+
+      -- Make it very unlikely (but not impossible) for the same music
+      -- to play twice
+      for i=1, 3 do
+         if new_track == last_track then
+            new_track = ambient[ rnd.rnd(1,#ambient) ]
+         else
+            break
+         end
+      end
+
+      last_track = new_track
+      music.load( new_track )
       music.play()
       return true
    end
@@ -258,6 +294,20 @@ function choose_ambient ()
 end
 
 
+-- Faction-specific combat songs
+factional_combat = {
+   Collective = { "collective2", "galacticbattle", "battlesomething1", "combat3" },
+   Pirate     = { "battlesomething2", "blackmoor_tides", add_neutral = true },
+   Empire     = { "galacticbattle", "battlesomething2"; add_neutral = true },
+   Goddard    = { "flf_battle1", "battlesomething1"; add_neutral = true },
+   Dvaered    = { "flf_battle1", "battlesomething1", "battlesomething2"; add_neutral = true },
+   ["FLF"]    = { "flf_battle1", "battlesomething2"; add_neutral = true },
+   Frontier   = { "flf_battle1"; add_neutral = true },
+   Sirius     = { "galacticbattle", "battlesomething1"; add_neutral = true },
+   Soromid    = { "galacticbattle", "battlesomething2"; add_neutral = true },
+   ["Za'lek"] = { "collective2", "galacticbattle", "battlesomething1", add_neutral = true }
+}
+
 --[[
 -- @brief Chooses battle songs.
 --]]
@@ -265,14 +315,36 @@ function choose_combat ()
    -- Get some data about the system
    local sys                  = system.cur()
    local nebu_dens, nebu_vol  = sys:nebula()
+   
+   local strongest = var.peek("music_combat_force")
+   if strongest == nil then
+      local presences = sys:presences()
+      if presences then
+         local strongest_amount = 0
+         for k, v in pairs( presences ) do
+            if faction.get(k):playerStanding() < 0 and v > strongest_amount then
+               strongest = k
+               strongest_amount = v
+            end
+         end
+      end
+   end
 
    local nebu = nebu_dens > 0
    if nebu then
-      combat = { "nebu_battle1", "nebu_battle2", "battlesomething1", "battlesomething2",
-            "combat1", "combat2" }
+      combat = { "nebu_battle1", "nebu_battle2", "combat1", "combat2" }
    else
-      combat = { "galacticbattle", "flf_battle1", "battlesomething1", "battlesomething2",
-            "combat3", "combat1", "combat2" }
+      combat = { "combat3", "combat1", "combat2" }
+   end
+
+   if factional_combat[strongest] then
+      if factional_combat[strongest].add_neutral then
+         for k, v in ipairs( factional_combat[strongest] ) do
+            combat[ #combat + 1 ] = v
+         end
+      else
+         combat = factional_combat[strongest]
+      end
    end
 
    -- Make sure it's not already in the list or that we have to stop the
@@ -281,7 +353,7 @@ function choose_combat ()
       local cur = music.current()
       for k,v in pairs(combat) do
          if cur == v then
-            return false
+            return true
          end
       end
 
@@ -289,7 +361,20 @@ function choose_combat ()
       return true
    end
 
-   music.load( combat[ rnd.rnd(1,#combat) ] )
+   local new_track = combat[ rnd.rnd(1,#combat) ]
+
+   -- Make it very unlikely (but not impossible) for the same music
+   -- to play twice
+   for i=1, 3 do
+      if new_track == last_track then
+         new_track = combat[ rnd.rnd(1,#combat) ]
+      else
+         break
+      end
+   end
+
+   last_track = new_track
+   music.load( new_track )
    music.play()
    return true
 end

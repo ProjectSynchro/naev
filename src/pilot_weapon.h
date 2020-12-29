@@ -26,7 +26,7 @@ void pilot_shootStop( Pilot* p, int level );
 void pilot_stopBeam( Pilot *p, PilotOutfitSlot *w );
 void pilot_getRateMod( double *rate_mod, double* energy_mod,
       Pilot* p, Outfit* o );
-double pilot_weapFlyTime( Outfit *o, Pilot *parent, Pilot *target);
+double pilot_weapFlyTime( Outfit *o, Pilot *parent, Vector2d *pos, Vector2d *vel);
 
 
 /* Updating. */
@@ -58,7 +58,7 @@ void pilot_weapSetInrange( Pilot* p, int id, int inrange );
 void pilot_weaponClear( Pilot *p );
 void pilot_weaponAuto( Pilot *p );
 void pilot_weaponSetDefault( Pilot *p );
-void pilot_weaponSane( Pilot *p );
+void pilot_weaponSafe( Pilot *p );
 void pilot_afterburn ( Pilot *p );
 void pilot_afterburnOver ( Pilot *p );
 int pilot_outfitOff( Pilot *p, PilotOutfitSlot *o );

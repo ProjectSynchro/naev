@@ -2,25 +2,25 @@
  * See Licensing and Copyright notice in naev.h
  */
 
-#if USE_OPENAL
 
+/** @cond */
+#include <math.h>
+#include <sys/stat.h>
+#include "physfsrwops.h"
+#include "SDL.h"
+#include "SDL_endian.h"
+#include "SDL_thread.h"
+
+#include "naev.h"
+/** @endcond */
 
 #include "sound_openal.h"
 
-#include "naev.h"
-
-#include <math.h>
-#include <sys/stat.h>
-
-#include "SDL.h"
-#include "SDL_thread.h"
-#include "SDL_endian.h"
-
-#include "music_openal.h"
-#include "sound.h"
-#include "ndata.h"
-#include "log.h"
 #include "conf.h"
+#include "log.h"
+#include "music_openal.h"
+//#include "ndata.h"
+#include "sound.h"
 
 
 /*
@@ -56,10 +56,6 @@
 
 
 #define SOUND_FADEOUT         100
-
-
-#define soundLock()     SDL_mutexP(sound_lock)
-#define soundUnlock()   SDL_mutexV(sound_lock)
 
 
 /*
@@ -106,9 +102,6 @@ static ALuint efx_echo        = 0; /**< Echo effect. */
 static double sound_speed     = 1.; /**< Sound speed. */
 
 
-/**
- * @brief Group implementation similar to SDL_Mixer.
- */
 typedef struct alGroup_s {
    int id; /**< Group ID. */
 
@@ -221,7 +214,7 @@ int sound_al_init (void)
    /* opening the default device */
    al_device = alcOpenDevice(NULL);
    if (al_device == NULL) {
-      WARN("Unable to open default sound device");
+      WARN(_("Unable to open default sound device"));
       ret = -1;
       goto snderr_dev;
    }
@@ -240,7 +233,7 @@ int sound_al_init (void)
    /* Create the OpenAL context */
    al_context = alcCreateContext( al_device, attribs );
    if (al_context == NULL) {
-      WARN("Unable to create OpenAL context");
+      WARN(_("Unable to create OpenAL context"));
       ret = -2;
       goto snderr_ctx;
    }
@@ -250,7 +243,7 @@ int sound_al_init (void)
 
    /* Set active context */
    if (alcMakeContextCurrent( al_context )==AL_FALSE) {
-      WARN("Failure to set default context");
+      WARN(_("Failure to set default context"));
       ret = -4;
       goto snderr_act;
    }
@@ -259,8 +252,9 @@ int sound_al_init (void)
    alcGetIntegerv( al_device, ALC_FREQUENCY, sizeof(freq), &freq );
 
    /* Try to enable EFX. */
-   if (al_info.efx == AL_TRUE)
+   if (al_info.efx == AL_TRUE) {
       al_enableEFX();
+   }
    else {
       al_info.efx_reverb = AL_FALSE;
       al_info.efx_echo   = AL_FALSE;
@@ -272,17 +266,11 @@ int sound_al_init (void)
    /* Check for errors. */
    al_checkErr();
 
-   /* Start allocating the sources - music has already taken his */
+   /* Start allocating the sources - music has already taken theirs */
    source_nstack  = 0;
-   source_mstack  = 0;
+   source_mstack  = conf.snd_voices;
+   source_stack   = malloc( sizeof( ALuint ) * source_mstack );
    while (source_nstack < conf.snd_voices) {
-      if (source_mstack < source_nstack+1) { /* allocate more memory */
-         if (source_mstack == 0)
-            source_mstack = conf.snd_voices;
-         else
-            source_mstack *= 2;
-         source_stack = realloc( source_stack, sizeof(ALuint) * source_mstack );
-      }
       alGenSources( 1, &s );
       source_stack[source_nstack] = s;
 
@@ -330,17 +318,27 @@ int sound_al_init (void)
       else
          break;
    }
-   /* Reduce ram usage. */
-   source_mstack = source_nstack;
-   source_stack  = realloc( source_stack, sizeof(ALuint) * source_mstack );
-   /* Copy allocated sources to total stack. */
-   source_ntotal = source_mstack;
-   source_total  = malloc( sizeof(ALuint) * source_mstack );
-   memcpy( source_total, source_stack, sizeof(ALuint) * source_mstack );
-   /* Copy allocated sources to all stack. */
-   source_nall   = source_mstack;
-   source_all    = malloc( sizeof(ALuint) * source_mstack );
-   memcpy( source_all, source_stack, sizeof(ALuint) * source_mstack );
+
+   if ( source_nstack == 0 ) {
+      WARN( _( "OpenAL failed to initialize sources" ) );
+      source_mstack = 0;
+      free( source_stack );
+      source_stack = NULL;
+   }
+   else {
+      /* Reduce ram usage. */
+      source_mstack = source_nstack;
+      source_stack  = realloc( source_stack, sizeof( ALuint ) * source_mstack );
+      /* Copy allocated sources to total stack. */
+      source_ntotal = source_mstack;
+      source_total  = malloc( sizeof( ALuint ) * source_mstack );
+      memcpy( source_total, source_stack, sizeof( ALuint ) * source_mstack );
+
+      /* Copy allocated sources to all stack. */
+      source_nall = source_mstack;
+      source_all  = malloc( sizeof( ALuint ) * source_mstack );
+      memcpy( source_all, source_stack, sizeof( ALuint ) * source_mstack );
+   }
 
    /* Set up how sound works. */
    alDistanceModel( AL_INVERSE_DISTANCE_CLAMPED ); /* Clamping is fundamental so it doesn't sound like crap. */
@@ -354,14 +352,14 @@ int sound_al_init (void)
    soundUnlock();
 
    /* debug magic */
-   DEBUG("OpenAL started: %d Hz", freq);
-   DEBUG("Renderer: %s", alGetString(AL_RENDERER));
-   if (al_info.efx == AL_FALSE)
-      DEBUG("Version: %s without EFX", alGetString(AL_VERSION));
-   else
-      DEBUG("Version: %s with EFX %d.%d", alGetString(AL_VERSION),
+   DEBUG(_("OpenAL started: %d Hz"), freq);
+   DEBUG(_("Renderer: %s"), alGetString(AL_RENDERER));
+   if (al_info.efx)
+      DEBUG(_("Version: %s with EFX %d.%d"), alGetString(AL_VERSION),
             al_info.efx_major, al_info.efx_minor);
-   DEBUG();
+   else
+      DEBUG(_("Version: %s without EFX"), alGetString(AL_VERSION));
+   DEBUG_BLANK();
 
    return ret;
 
@@ -389,6 +387,14 @@ snderr_dev:
  */
 static int al_enableEFX (void)
 {
+   /* Issues with ALSOFT 1.19.1 crashes so we work around it.
+    * TODO: Disable someday. */
+   if (strcmp(alGetString(AL_VERSION), "1.1 ALSOFT 1.19.1")==0) {
+      DEBUG(_("Crashing ALSOFT version detected, disabling EFX"));
+      al_info.efx = AL_FALSE;
+      return -1;
+   }
+
    /* Get general information. */
    alcGetIntegerv( al_device, ALC_MAX_AUXILIARY_SENDS, 1, &al_info.efx_auxSends );
    alcGetIntegerv( al_device, ALC_EFX_MAJOR_VERSION, 1, &al_info.efx_major );
@@ -428,7 +434,7 @@ static int al_enableEFX (void)
          !nalFilteri || !nalFilteriv || !nalFilterf || !nalFilterfv ||
          !nalGenEffects || !nalDeleteEffects ||
          !nalEffecti || !nalEffectiv || !nalEffectf || !nalEffectfv) {
-      DEBUG("OpenAL EFX functions not found, disabling EFX.");
+      DEBUG(_("OpenAL EFX functions not found, disabling EFX."));
       al_info.efx = AL_FALSE;
       return -1;
    }
@@ -439,8 +445,8 @@ static int al_enableEFX (void)
    /* Create reverb effect. */
    nalGenEffects( 1, &efx_reverb );
    nalEffecti( efx_reverb, AL_EFFECT_TYPE, AL_EFFECT_REVERB );
-   if(alGetError() != AL_NO_ERROR) {
-      DEBUG("OpenAL Reverb not found, disabling.");
+   if (alGetError() != AL_NO_ERROR) {
+      DEBUG(_("OpenAL Reverb not found, disabling."));
       al_info.efx_reverb = AL_FALSE;
       nalDeleteEffects( 1, &efx_reverb );
    }
@@ -454,8 +460,8 @@ static int al_enableEFX (void)
    /* Create echo effect. */
    nalGenEffects( 1, &efx_echo );
    nalEffecti( efx_echo, AL_EFFECT_TYPE, AL_EFFECT_ECHO );
-   if(alGetError() != AL_NO_ERROR) {
-      DEBUG("OpenAL Echo not found, disabling.");
+   if (alGetError() != AL_NO_ERROR) {
+      DEBUG(_("OpenAL Echo not found, disabling."));
       al_info.efx_echo = AL_FALSE;
       nalDeleteEffects( 1, &efx_echo );
    }
@@ -487,13 +493,11 @@ void sound_al_exit (void)
 
    /* Free groups. */
    for (i=0; i<al_ngroups; i++) {
-      if (al_groups[i].sources != NULL)
-         free(al_groups[i].sources);
+      free(al_groups[i].sources);
       al_groups[i].sources  = NULL;
       al_groups[i].nsources = 0;
    }
-   if (al_groups != NULL)
-      free(al_groups);
+   free(al_groups);
    al_groups  = NULL;
    al_ngroups = 0;
 
@@ -505,12 +509,10 @@ void sound_al_exit (void)
    }
    source_all        = NULL;
    source_nall       = 0;
-   if (source_total)
-      free(source_total);
+   free(source_total);
    source_total      = NULL;
    source_ntotal     = 0;
-   if (source_stack != NULL)
-      free(source_stack);
+   free(source_stack);
    source_stack      = NULL;
    source_nstack     = 0;
    source_mstack     = 0;
@@ -556,7 +558,7 @@ static int sound_al_loadWav( alSound *snd, SDL_RWops *rw )
 
    /* Load WAV. */
    if (SDL_LoadWAV_RW( rw, 0, &wav_spec, &wav_buffer, &wav_length) == NULL) {
-      WARN("SDL_LoadWav_RW failed: %s", SDL_GetError());
+      WARN(_("SDL_LoadWav_RW failed: %s"), SDL_GetError());
       return -1;
    }
 
@@ -572,19 +574,19 @@ static int sound_al_loadWav( alSound *snd, SDL_RWops *rw )
          break;
       case AUDIO_U16MSB:
       case AUDIO_S16MSB:
-         WARN( "Big endian WAVs unsupported!" );
+         WARN( _("Big endian WAVs unsupported!") );
          return -1;
       default:
-         WARN( "Invalid WAV format!" );
+         WARN( _("Invalid WAV format!") );
          return -1;
    }
 
    /* Load into openal. */
    soundLock();
    /* Create new buffer. */
-   alGenBuffers( 1, &snd->u.al.buf );
+   alGenBuffers( 1, &snd->buf );
    /* Put into the buffer. */
-   alBufferData( snd->u.al.buf, format, wav_buffer, wav_length, wav_spec.freq );
+   alBufferData( snd->buf, format, wav_buffer, wav_length, wav_spec.freq );
    soundUnlock();
 
    /* Clean up. */
@@ -599,17 +601,17 @@ static int sound_al_loadWav( alSound *snd, SDL_RWops *rw )
 static const char* vorbis_getErr( int err )
 {
    switch (err) {
-      case OV_EREAD:       return "A read from media returned an error.";
-      case OV_EFAULT:      return "Internal logic fault; indicates a bug or heap/stack corruption.";
-      case OV_EIMPL:       return "Feature not implemented.";
-      case OV_EINVAL:      return "Either an invalid argument, or incompletely initialized argument passed to libvorbisfile call";
-      case OV_ENOTVORBIS:  return "Bitstream is not Vorbis data.";
-      case OV_EBADHEADER:  return "Invalid Vorbis bitstream header.";
-      case OV_EVERSION:    return "Vorbis version mismatch.";
-      case OV_EBADLINK:    return "The given link exists in the Vorbis data stream, but is not decipherable due to garbacge or corruption.";
-      case OV_ENOSEEK:     return "The given stream is not seekable.";
+      case OV_EREAD:       return _("A read from media returned an error.");
+      case OV_EFAULT:      return _("Internal logic fault; indicates a bug or heap/stack corruption.");
+      case OV_EIMPL:       return _("Feature not implemented.");
+      case OV_EINVAL:      return _("Either an invalid argument, or incompletely initialized argument passed to libvorbisfile call");
+      case OV_ENOTVORBIS:  return _("Bitstream is not Vorbis data.");
+      case OV_EBADHEADER:  return _("Invalid Vorbis bitstream header.");
+      case OV_EVERSION:    return _("Vorbis version mismatch.");
+      case OV_EBADLINK:    return _("The given link exists in the Vorbis data stream, but is not decipherable due to garbage or corruption.");
+      case OV_ENOSEEK:     return _("The given stream is not seekable.");
 
-      default: return "Unknown vorbisfile error.";
+      default: return _("Unknown vorbisfile error.");
    }
 }
 
@@ -633,7 +635,7 @@ static int sound_al_loadOgg( alSound *snd, OggVorbis_File *vf )
    /* Finish opening the file. */
    ret = ov_test_open(vf);
    if (ret) {
-      WARN("Failed to finish loading Ogg file: %s", vorbis_getErr(ret) );
+      WARN(_("Failed to finish loading Ogg file: %s"), vorbis_getErr(ret) );
       return -1;
    }
 
@@ -649,14 +651,14 @@ static int sound_al_loadOgg( alSound *snd, OggVorbis_File *vf )
    i = 0;
    while (i < len) {
       /* Fill buffer with data in the 16 bit signed samples format. */
-      i += ov_read( vf, &buf[i], len-i, VORBIS_ENDIAN, 2, 1, &section );
+      i += ov_read( vf, &buf[i], len-i, HAS_BIGENDIAN, 2, 1, &section );
    }
 
    soundLock();
    /* Create new buffer. */
-   alGenBuffers( 1, &snd->u.al.buf );
+   alGenBuffers( 1, &snd->buf );
    /* Put into buffer. */
-   alBufferData( snd->u.al.buf, format, buf, len, info->rate );
+   alBufferData( snd->buf, format, buf, len, info->rate );
    soundUnlock();
 
    /* Clean up. */
@@ -681,7 +683,7 @@ int sound_al_load( alSound *snd, const char *filename )
    ALint freq, bits, channels, size;
 
    /* get the file data buffer from packfile */
-   rw = ndata_rwops( filename );
+   rw = PHYSFSRWOPS_openRead( filename );
 
    /* Check to see if it's an Ogg. */
    if (ov_test_callbacks( rw, &vf, NULL, 0, sound_al_ovcall_noclose )==0)
@@ -701,19 +703,19 @@ int sound_al_load( alSound *snd, const char *filename )
 
    /* Failed to load. */
    if (ret != 0) {
-      WARN("Failed to load sound file '%s'.", filename);
+      WARN(_("Failed to load sound file '%s'."), filename);
       return ret;
    }
 
    soundLock();
 
    /* Get the length of the sound. */
-   alGetBufferi( snd->u.al.buf, AL_FREQUENCY, &freq );
-   alGetBufferi( snd->u.al.buf, AL_BITS, &bits );
-   alGetBufferi( snd->u.al.buf, AL_CHANNELS, &channels );
-   alGetBufferi( snd->u.al.buf, AL_SIZE, &size );
+   alGetBufferi( snd->buf, AL_FREQUENCY, &freq );
+   alGetBufferi( snd->buf, AL_BITS, &bits );
+   alGetBufferi( snd->buf, AL_CHANNELS, &channels );
+   alGetBufferi( snd->buf, AL_SIZE, &size );
    if ((freq==0) || (bits==0) || (channels==0)) {
-      WARN("Something went wrong when loading sound file '%s'.", filename);
+      WARN(_("Something went wrong when loading sound file '%s'."), filename);
       snd->length = 0;
    }
    else
@@ -736,7 +738,7 @@ void sound_al_free( alSound *snd )
    soundLock();
 
    /* free the stuff */
-   alDeleteBuffers( 1, &snd->u.al.buf );
+   alDeleteBuffers( 1, &snd->buf );
 
    soundUnlock();
 }
@@ -830,42 +832,38 @@ static ALuint sound_al_getSource (void)
 static int al_playVoice( alVoice *v, alSound *s,
       ALfloat px, ALfloat py, ALfloat vx, ALfloat vy, ALint relative )
 {
-   /* Must be below the limit. */
-   if (sound_speed > SOUND_SPEED_PLAY_LIMIT)
-      return 0;
-
    /* Set up the source and buffer. */
-   v->u.al.source = sound_al_getSource();
-   if (v->u.al.source == 0)
+   v->source = sound_al_getSource();
+   if (v->source == 0)
       return -1;
-   v->u.al.buffer = s->u.al.buf;
+   v->buffer = s->buf;
 
    soundLock();
 
    /* Attach buffer. */
-   alSourcei( v->u.al.source, AL_BUFFER, v->u.al.buffer );
+   alSourcei( v->source, AL_BUFFER, v->buffer );
 
    /* Enable positional sound. */
-   alSourcei( v->u.al.source, AL_SOURCE_RELATIVE, relative );
+   alSourcei( v->source, AL_SOURCE_RELATIVE, relative );
 
    /* Update position. */
-   v->u.al.pos[0] = px;
-   v->u.al.pos[1] = py;
-   v->u.al.pos[2] = 0.;
-   v->u.al.vel[0] = vx;
-   v->u.al.vel[1] = vy;
-   v->u.al.vel[2] = 0.;
+   v->pos[0] = px;
+   v->pos[1] = py;
+   v->pos[2] = 0.;
+   v->vel[0] = vx;
+   v->vel[1] = vy;
+   v->vel[2] = 0.;
 
    /* Set up properties. */
-   alSourcef(  v->u.al.source, AL_GAIN, svolume*svolume_speed );
-   alSourcefv( v->u.al.source, AL_POSITION, v->u.al.pos );
-   alSourcefv( v->u.al.source, AL_VELOCITY, v->u.al.vel );
+   alSourcef(  v->source, AL_GAIN, svolume*svolume_speed );
+   alSourcefv( v->source, AL_POSITION, v->pos );
+   alSourcefv( v->source, AL_VELOCITY, v->vel );
 
    /* Defaults just in case. */
-   alSourcei( v->u.al.source, AL_LOOPING, AL_FALSE );
+   alSourcei( v->source, AL_LOOPING, AL_FALSE );
 
    /* Start playing. */
-   alSourcePlay( v->u.al.source );
+   alSourcePlay( v->source );
 
    /* Check for errors. */
    al_checkErr();
@@ -913,10 +911,10 @@ int sound_al_playPos( alVoice *v, alSound *s,
 int sound_al_updatePos( alVoice *v,
             double px, double py, double vx, double vy )
 {
-   v->u.al.pos[0] = px;
-   v->u.al.pos[1] = py;
-   v->u.al.vel[0] = vx;
-   v->u.al.vel[1] = vy;
+   v->pos[0] = px;
+   v->pos[1] = py;
+   v->vel[0] = vx;
+   v->vel[1] = vy;
 
    return 0;
 }
@@ -932,7 +930,7 @@ void sound_al_updateVoice( alVoice *v )
    ALint state;
 
    /* Invalid source, mark to delete. */
-   if (v->u.al.source == 0) {
+   if (v->source == 0) {
       v->state = VOICE_DESTROY;
       return;
    }
@@ -940,11 +938,11 @@ void sound_al_updateVoice( alVoice *v )
    soundLock();
 
    /* Get status. */
-   alGetSourcei( v->u.al.source, AL_SOURCE_STATE, &state );
+   alGetSourcei( v->source, AL_SOURCE_STATE, &state );
    if (state == AL_STOPPED) {
 
       /* Remove buffer so it doesn't start up again if resume is called. */
-      alSourcei( v->u.al.source, AL_BUFFER, AL_NONE );
+      alSourcei( v->source, AL_BUFFER, AL_NONE );
 
       /* Check for errors. */
       al_checkErr();
@@ -952,9 +950,9 @@ void sound_al_updateVoice( alVoice *v )
       soundUnlock();
 
       /* Put source back on the list. */
-      source_stack[source_nstack] = v->u.al.source;
+      source_stack[source_nstack] = v->source;
       source_nstack++;
-      v->u.al.source = 0;
+      v->source = 0;
 
       /* Mark as stopped - erased next iteration. */
       v->state = VOICE_STOPPED;
@@ -962,9 +960,9 @@ void sound_al_updateVoice( alVoice *v )
    }
 
    /* Set up properties. */
-   alSourcef(  v->u.al.source, AL_GAIN, svolume*svolume_speed );
-   alSourcefv( v->u.al.source, AL_POSITION, v->u.al.pos );
-   alSourcefv( v->u.al.source, AL_VELOCITY, v->u.al.vel );
+   alSourcef(  v->source, AL_GAIN, svolume*svolume_speed );
+   alSourcefv( v->source, AL_POSITION, v->pos );
+   alSourcefv( v->source, AL_VELOCITY, v->vel );
 
    /* Check for errors. */
    al_checkErr();
@@ -980,8 +978,8 @@ void sound_al_stop( alVoice* voice )
 {
    soundLock();
 
-   if (voice->u.al.source != 0)
-      alSourceStop( voice->u.al.source );
+   if (voice->source != 0)
+      alSourceStop( voice->source );
 
    /* Check for errors. */
    al_checkErr();
@@ -1234,7 +1232,7 @@ static alGroup_t *sound_al_getGroup( int group )
          continue;
       return &al_groups[i];
    }
-   WARN("Group '%d' not found.", group);
+   WARN(_("Group '%d' not found."), group);
    return NULL;
 }
 
@@ -1271,7 +1269,7 @@ int sound_al_playGroup( int group, alSound *s, int once )
             continue;
 
          /* Attach buffer. */
-         alSourcei( g->sources[j], AL_BUFFER, s->u.al.buf );
+         alSourcei( g->sources[j], AL_BUFFER, s->buf );
 
          /* Do not do positional sound. */
          alSourcei( g->sources[j], AL_SOURCE_RELATIVE, AL_TRUE );
@@ -1296,14 +1294,14 @@ int sound_al_playGroup( int group, alSound *s, int once )
       }
       soundUnlock();
 
-      WARN("Group '%d' has no free sounds.", group );
+      WARN(_("Group '%d' has no free sounds."), group );
 
       /* Group matched but not found. */
       break;
    }
 
    if (i>=al_ngroups)
-      WARN("Group '%d' not found.", group);
+      WARN(_("Group '%d' not found."), group);
 
    return -1;
 }
@@ -1468,52 +1466,3 @@ void sound_al_update (void)
       }
    }
 }
-
-
-#ifdef DEBUGGING
-/**
- * @brief Converts an OpenAL error to a string.
- *
- *    @param err Error to convert to string.
- *    @return String corresponding to the error.
- */
-void al_checkHandleError( const char *func )
-{
-   ALenum err;
-   const char *errstr;
-
-   /* Get the possible error. */
-   err = alGetError();
-
-   /* No error. */
-   if (err == AL_NO_ERROR)
-      return;
-
-   /* Get the message. */
-   switch (err) {
-      case AL_INVALID_NAME:
-         errstr = "a bad name (ID) was passed to an OpenAL function";
-         break;
-      case AL_INVALID_ENUM:
-         errstr = "an invalid enum value was passed to an OpenAL function";
-         break;
-      case AL_INVALID_VALUE:
-         errstr = "an invalid value was passed to an OpenAL function";
-         break;
-      case AL_INVALID_OPERATION:
-         errstr = "the requested operation is not valid";
-         break;
-      case AL_OUT_OF_MEMORY:
-         errstr = "the requested operation resulted in OpenAL running out of memory";
-         break;
-
-      default:
-         errstr = "unknown error";
-         break;
-   }
-   WARN("OpenAL error [%s]: %s", func, errstr);
-}
-#endif /* DEBUGGING */
-
-
-#endif /* USE_OPENAL */

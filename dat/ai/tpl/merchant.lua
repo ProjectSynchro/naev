@@ -1,4 +1,4 @@
-include("dat/ai/include/basic.lua")
+require("ai/include/basic")
 
 -- Variables
 mem.enemy_close = 500 -- Distance enemy is too close for comfort
@@ -14,7 +14,7 @@ function control ()
    -- Runaway if enemy is near
    if task ~= "runaway" and enemy ~= nil and
          (ai.dist(enemy) < mem.enemy_close or ai.haslockon()) then
-      if task ~= "none" then
+      if task ~= nil then
          ai.poptask()
       end
       ai.pushtask("runaway",enemy)
@@ -58,7 +58,7 @@ function control ()
       end
 
    -- Find something to do
-   elseif task == "none" then
+   elseif task == nil then
       planet = ai.landplanet()
       -- planet must exist
       if planet == nil then

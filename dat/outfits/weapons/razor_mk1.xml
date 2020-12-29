@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <outfit name="Razor MK1">
  <general>
   <slot>weapon</slot>
@@ -22,7 +22,7 @@
   <energy>6</energy>
   <heatup>20</heatup>
   <track>2.25</track>
-  <swivel>5</swivel>
+  <swivel>22</swivel>
   <damage>
    <type>ion</type>
    <penetrate>0</penetrate>

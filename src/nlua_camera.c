@@ -8,25 +8,29 @@
  * @brief Bindings for Camera functionality from Lua.
  */
 
-#include "nlua_camera.h"
-
-#include "naev.h"
-
+/** @cond */
 #include <lauxlib.h>
 
-#include "nlua.h"
-#include "nluadef.h"
-#include "log.h"
-#include "nlua_vec2.h"
-#include "nlua_pilot.h"
+#include "naev.h"
+/** @endcond */
+
+#include "nlua_camera.h"
+
 #include "camera.h"
+#include "log.h"
+#include "nlua_pilot.h"
+#include "nlua_vec2.h"
+#include "nluadef.h"
 #include "player.h"
+#include "spfx.h"
 
 
 /* Camera methods. */
 static int camL_set( lua_State *L );
-static const luaL_reg cameraL_methods[] = {
+static int camL_shake( lua_State *L );
+static const luaL_Reg cameraL_methods[] = {
    { "set", camL_set },
+   { "shake", camL_shake },
    {0,0}
 }; /**< Camera Lua methods. */
 
@@ -36,17 +40,12 @@ static const luaL_reg cameraL_methods[] = {
 /**
  * @brief Loads the camera library.
  *
- *    @param L State to load camera library into.
+ *    @param env Lua environment.
  *    @return 0 on success.
  */
-int nlua_loadCamera( lua_State *L, int readonly )
+int nlua_loadCamera( nlua_env env )
 {
-   if (readonly) /* Nothing is read only */
-      return 0;
-
-   /* Register the values */
-   luaL_register(L, "camera", cameraL_methods);
-
+   nlua_register(env, "camera", cameraL_methods, 0);
    return 0;
 }
 
@@ -71,10 +70,10 @@ int nlua_loadCamera( lua_State *L, int readonly )
  * @usage camera.set( a_pilot, true ) -- Flies camera over to a_pilot.
  * @usage camera.set( vec2.new() ) -- Jumps camera to 0,0
  *
- *    @luaparam target Should be either a vec2 or a pilot to focus on. It will follow pilots around. If nil, it follows the player.
- *    @luaparam soft_over Defaults to false, indicates if the camera should fly over or instantly teleport.
- *    @luaparam speed Speed at which to fly over. Defaults to 2500 if omitted and soft_over is true.
- * @luafunc set( target, soft_over )
+ *    @luatparam Pilot|Vec2|nil target It will follow pilots around. If nil, it follows the player.
+ *    @luatparam[opt=false] boolean soft_over Indicates that the camera should fly over rather than instantly teleport.
+ *    @luaparam[opt=2500] speed Speed at which to fly over if soft_over is true.
+ * @luafunc set( target, soft_over, speed )
  */
 static int camL_set( lua_State *L )
 {
@@ -82,6 +81,8 @@ static int camL_set( lua_State *L )
    Vector2d *vec;
    Pilot *p;
    int soft_over, speed;
+
+   NLUA_CHECKRW(L);
 
    /* Handle arguments. */
    lp = 0;
@@ -108,6 +109,35 @@ static int camL_set( lua_State *L )
       if (player.p != NULL)
          cam_setTargetPilot( player.p->id, soft_over*speed );
    }
+   return 0;
+}
+
+
+/**
+ * @brief Makes the camera shake.
+ *
+ * @usage camera.shake() -- Shakes the camera with amplitude 1.
+ * @usage camera.shake( .5 ) -- Shakes the camera with amplitude .5
+ *
+ *    @luatparam float amplitude: amplitude of the shaking
+ * @luafunc shake( amplitude )
+ */
+static int camL_shake( lua_State *L )
+{
+   double amplitude;
+
+   amplitude = 1;
+
+   NLUA_CHECKRW(L);
+
+   if (lua_gettop(L) > 0) {
+      if (lua_isnumber(L,1))
+         amplitude = luaL_checknumber(L,1);
+      else
+         NLUA_INVALID_PARAMETER(L);
+   }
+
+   spfx_shake( SHAKE_MAX * amplitude );
    return 0;
 }
 

@@ -9,25 +9,28 @@
  */
 
 
-#include "ship.h"
+/** @cond */
+#include <limits.h>
+#include "physfsrwops.h"
 
 #include "naev.h"
+/** @endcond */
 
-#include "nstring.h"
-#include <limits.h>
+#include "ship.h"
 
-#include "nxml.h"
-
+#include "array.h"
+#include "colour.h"
+#include "conf.h"
 #include "log.h"
 #include "ndata.h"
-#include "toolkit.h"
-#include "array.h"
-#include "conf.h"
+#include "nfile.h"
 #include "npng.h"
-#include "colour.h"
+#include "nstring.h"
+#include "nxml.h"
 #include "shipstats.h"
 #include "slots.h"
-#include "nfile.h"
+#include "toolkit.h"
+#include "unistd.h"
 
 
 #define XML_SHIP  "ship" /**< XML individual ship identifier. */
@@ -53,6 +56,7 @@ static Ship* ship_stack = NULL; /**< Stack of ships available in the game. */
  * Prototypes
  */
 static int ship_loadGFX( Ship *temp, char *buf, int sx, int sy, int engine );
+static int ship_loadPLG( Ship *temp, char *buf );
 static int ship_parse( Ship *temp, xmlNodePtr parent );
 
 
@@ -72,7 +76,7 @@ Ship* ship_get( const char* name )
       if (strcmp(temp[i].name, name)==0)
          return &temp[i];
 
-   WARN("Ship %s does not exist", name);
+   WARN(_("Ship %s does not exist"), name);
    return NULL;
 }
 
@@ -164,49 +168,49 @@ char* ship_class( Ship* s )
 
       /* Civilian. */
       case SHIP_CLASS_YACHT:
-         return "Yacht";
+         return gettext_noop("Yacht");
       case SHIP_CLASS_LUXURY_YACHT:
-         return "Luxury Yacht";
+         return gettext_noop("Luxury Yacht");
       case SHIP_CLASS_CRUISE_SHIP:
-         return "Cruise Ship";
+         return gettext_noop("Cruise Ship");
 
       /* Merchant. */
       case SHIP_CLASS_COURIER:
-         return "Courier";
+         return gettext_noop("Courier");
       case SHIP_CLASS_ARMOURED_TRANSPORT:
-         return "Armoured Transport";
+         return gettext_noop("Armoured Transport");
       case SHIP_CLASS_FREIGHTER:
-         return "Freighter";
+         return gettext_noop("Freighter");
       case SHIP_CLASS_BULK_CARRIER:
-         return "Bulk Carrier";
+         return gettext_noop("Bulk Carrier");
 
       /* Military. */
       case SHIP_CLASS_SCOUT:
-         return "Scout";
+         return gettext_noop("Scout");
       case SHIP_CLASS_FIGHTER:
-         return "Fighter";
+         return gettext_noop("Fighter");
       case SHIP_CLASS_BOMBER:
-         return "Bomber";
+         return gettext_noop("Bomber");
       case SHIP_CLASS_CORVETTE:
-         return "Corvette";
+         return gettext_noop("Corvette");
       case SHIP_CLASS_DESTROYER:
-         return "Destroyer";
+         return gettext_noop("Destroyer");
       case SHIP_CLASS_CRUISER:
-         return "Cruiser";
+         return gettext_noop("Cruiser");
       case SHIP_CLASS_CARRIER:
-         return "Carrier";
+         return gettext_noop("Carrier");
 
       /* Robotic. */
       case SHIP_CLASS_DRONE:
-         return "Drone";
+         return gettext_noop("Drone");
       case SHIP_CLASS_HEAVY_DRONE:
-         return "Heavy Drone";
+         return gettext_noop("Heavy Drone");
       case SHIP_CLASS_MOTHERSHIP:
-         return "Mothership";
+         return gettext_noop("Mothership");
 
       /* Unknown. */
       default:
-         return "Unknown";
+         return gettext_noop("Unknown");
    }
 }
 
@@ -218,47 +222,49 @@ char* ship_class( Ship* s )
  */
 ShipClass ship_classFromString( char* str )
 {
-   /* Civilian */
-   if (strcmp(str,"Yacht")==0)
-      return SHIP_CLASS_YACHT;
-   else if (strcmp(str,"Luxury Yacht")==0)
-      return SHIP_CLASS_LUXURY_YACHT;
-   else if (strcmp(str,"Cruise Ship")==0)
-      return SHIP_CLASS_CRUISE_SHIP;
+   if ( str != NULL ) {
+      /* Civilian */
+      if ( strcmp( str, "Yacht" ) == 0 )
+         return SHIP_CLASS_YACHT;
+      else if ( strcmp( str, "Luxury Yacht" ) == 0 )
+         return SHIP_CLASS_LUXURY_YACHT;
+      else if ( strcmp( str, "Cruise Ship" ) == 0 )
+         return SHIP_CLASS_CRUISE_SHIP;
 
-   /* Merchant. */
-   else if (strcmp(str,"Courier")==0)
-      return SHIP_CLASS_COURIER;
-   else if (strcmp(str,"Freighter")==0)
-      return SHIP_CLASS_FREIGHTER;
-   else if (strcmp(str,"Armoured Transport")==0)
-      return SHIP_CLASS_ARMOURED_TRANSPORT;
-   else if (strcmp(str,"Bulk Carrier")==0)
-      return SHIP_CLASS_BULK_CARRIER;
+      /* Merchant. */
+      else if ( strcmp( str, "Courier" ) == 0 )
+         return SHIP_CLASS_COURIER;
+      else if ( strcmp( str, "Freighter" ) == 0 )
+         return SHIP_CLASS_FREIGHTER;
+      else if ( strcmp( str, "Armoured Transport" ) == 0 )
+         return SHIP_CLASS_ARMOURED_TRANSPORT;
+      else if ( strcmp( str, "Bulk Carrier" ) == 0 )
+         return SHIP_CLASS_BULK_CARRIER;
 
-   /* Military */
-   else if (strcmp(str,"Scout")==0)
-      return SHIP_CLASS_SCOUT;
-   else if (strcmp(str,"Fighter")==0)
-      return SHIP_CLASS_FIGHTER;
-   else if (strcmp(str,"Bomber")==0)
-      return SHIP_CLASS_BOMBER;
-   else if (strcmp(str,"Corvette")==0)
-      return SHIP_CLASS_CORVETTE;
-   else if (strcmp(str,"Destroyer")==0)
-      return SHIP_CLASS_DESTROYER;
-   else if (strcmp(str,"Cruiser")==0)
-      return SHIP_CLASS_CRUISER;
-   else if (strcmp(str,"Carrier")==0)
-      return SHIP_CLASS_CARRIER;
+      /* Military */
+      else if ( strcmp( str, "Scout" ) == 0 )
+         return SHIP_CLASS_SCOUT;
+      else if ( strcmp( str, "Fighter" ) == 0 )
+         return SHIP_CLASS_FIGHTER;
+      else if ( strcmp( str, "Bomber" ) == 0 )
+         return SHIP_CLASS_BOMBER;
+      else if ( strcmp( str, "Corvette" ) == 0 )
+         return SHIP_CLASS_CORVETTE;
+      else if ( strcmp( str, "Destroyer" ) == 0 )
+         return SHIP_CLASS_DESTROYER;
+      else if ( strcmp( str, "Cruiser" ) == 0 )
+         return SHIP_CLASS_CRUISER;
+      else if ( strcmp( str, "Carrier" ) == 0 )
+         return SHIP_CLASS_CARRIER;
 
-   /* Robotic */
-   else if (strcmp(str,"Drone")==0)
-      return SHIP_CLASS_DRONE;
-   else if (strcmp(str,"Heavy Drone")==0)
-      return SHIP_CLASS_HEAVY_DRONE;
-   else if (strcmp(str,"Mothership")==0)
-      return SHIP_CLASS_MOTHERSHIP;
+      /* Robotic */
+      else if ( strcmp( str, "Drone" ) == 0 )
+         return SHIP_CLASS_DRONE;
+      else if ( strcmp( str, "Heavy Drone" ) == 0 )
+         return SHIP_CLASS_HEAVY_DRONE;
+      else if ( strcmp( str, "Mothership" ) == 0 )
+         return SHIP_CLASS_MOTHERSHIP;
+   }
 
   /* Unknown */
   return SHIP_CLASS_NULL;
@@ -276,7 +282,7 @@ credits_t ship_basePrice( const Ship* s )
    price = s->price;
 
    if (price < 0) {
-      WARN("Negative ship base price!");
+      WARN(_("Negative ship base price!"));
       price = 0;
    }
 
@@ -330,6 +336,44 @@ glTexture* ship_loadCommGFX( Ship* s )
 
 
 /**
+ * @brief Gets the size of the ship.
+ *
+ *    @brief s Ship to get the size of.
+ * @return Size of the ship.
+ */
+int ship_size( const Ship *s )
+{
+   switch (s->class) {
+      case SHIP_CLASS_YACHT:
+      case SHIP_CLASS_LUXURY_YACHT:
+      case SHIP_CLASS_COURIER:
+      case SHIP_CLASS_SCOUT:
+      case SHIP_CLASS_FIGHTER:
+      case SHIP_CLASS_BOMBER:
+      case SHIP_CLASS_DRONE:
+         return 1;
+
+      case SHIP_CLASS_CRUISE_SHIP:
+      case SHIP_CLASS_ARMOURED_TRANSPORT:
+      case SHIP_CLASS_FREIGHTER:
+      case SHIP_CLASS_CORVETTE:
+      case SHIP_CLASS_DESTROYER:
+      case SHIP_CLASS_HEAVY_DRONE:
+         return 2;
+
+      case SHIP_CLASS_BULK_CARRIER:
+      case SHIP_CLASS_CRUISER:
+      case SHIP_CLASS_CARRIER:
+      case SHIP_CLASS_MOTHERSHIP:
+         return 3;
+
+      default:
+         return -1;
+   }
+}
+
+
+/**
  * @brief Generates a target graphic for a ship.
  */
 static int ship_genTargetGFX( Ship *temp, SDL_Surface *surface, int sx, int sy )
@@ -345,9 +389,6 @@ static int ship_genTargetGFX( Ship *temp, SDL_Surface *surface, int sx, int sy )
    double h, s, v;
 #endif
    char buf[PATH_MAX];
-#if ! SDL_VERSION_ATLEAST(1,3,0)
-   Uint32 saved_flags;
-#endif /* ! SDL_VERSION_ATLEAST(1,3,0) */
 
    /* Get sprite size. */
    sw = temp->gfx_space->w / sx;
@@ -368,7 +409,6 @@ static int ship_genTargetGFX( Ship *temp, SDL_Surface *surface, int sx, int sy )
    }
 
    /* Create the surface. */
-#if SDL_VERSION_ATLEAST(1,3,0)
    SDL_SetSurfaceBlendMode(surface, SDL_BLENDMODE_NONE);
 
    /* create the temp POT surface */
@@ -376,22 +416,9 @@ static int ship_genTargetGFX( Ship *temp, SDL_Surface *surface, int sx, int sy )
          surface->format->BytesPerPixel*8, RGBAMASK );
    gfx_store = SDL_CreateRGBSurface( 0, potw_store, poth_store,
          surface->format->BytesPerPixel*8, RGBAMASK );
-#else /* SDL_VERSION_ATLEAST(1,3,0) */
-   saved_flags = surface->flags & (SDL_SRCALPHA | SDL_RLEACCELOK);
-   if ((saved_flags & SDL_SRCALPHA) == SDL_SRCALPHA) {
-      SDL_SetAlpha( surface, 0, SDL_ALPHA_OPAQUE );
-      SDL_SetColorKey( surface, 0, surface->format->colorkey );
-   }
-
-   /* create the temp POT surface */
-   gfx = SDL_CreateRGBSurface( SDL_SRCCOLORKEY,
-         potw, poth, surface->format->BytesPerPixel*8, RGBAMASK );
-   gfx_store = SDL_CreateRGBSurface( SDL_SRCCOLORKEY,
-         potw_store, poth_store, surface->format->BytesPerPixel*8, RGBAMASK );
-#endif /* SDL_VERSION_ATLEAST(1,3,0) */
 
    if (gfx == NULL) {
-      WARN( "Unable to create ship '%s' targeting surface.", temp->name );
+      WARN( _("Unable to create ship '%s' targeting surface."), temp->name );
       return -1;
    }
 
@@ -413,12 +440,6 @@ static int ship_genTargetGFX( Ship *temp, SDL_Surface *surface, int sx, int sy )
    dstrect.w = rtemp.w;
    dstrect.h = rtemp.h;
    SDL_BlitSurface( surface, &rtemp, gfx_store, &dstrect );
-
-#if ! SDL_VERSION_ATLEAST(1,3,0)
-   /* set saved alpha */
-   if ( (saved_flags & SDL_SRCALPHA) == SDL_SRCALPHA )
-      SDL_SetAlpha( surface, 0, 0 );
-#endif /* ! SDL_VERSION_ATLEAST(1,3,0) */
 
    /* Load the store surface. */
    nsnprintf( buf, sizeof(buf), "%s_gfx_store.png", temp->name );
@@ -464,36 +485,23 @@ static int ship_genTargetGFX( Ship *temp, SDL_Surface *surface, int sx, int sy )
 
 
 /**
- * @brief Loads the graphics for a ship.
+ * @brief Loads the space graphics for a ship from an image.
  *
  *    @param temp Ship to load into.
- *    @param buf Name of the texture to work with.
+ *    @param str Path of the image to use.
+ *    @param sx Number of X sprites in image.
+ *    @param sy Number of Y sprites in image.
  */
-static int ship_loadGFX( Ship *temp, char *buf, int sx, int sy, int engine )
+static int ship_loadSpaceImage( Ship *temp, char *str, int sx, int sy )
 {
-   char base[PATH_MAX], str[PATH_MAX];
-   int i;
    png_uint_32 w, h;
    SDL_RWops *rw;
    npng_t *npng;
    SDL_Surface *surface;
-
-   /* Get base path. */
-   for (i=0; i<PATH_MAX; i++) {
-      if ((buf[i] == '\0') || (buf[i] == '_')) {
-         base[i] = '\0';
-         break;
-      }
-      base[i] = buf[i];
-   }
-   if (i>=PATH_MAX) {
-      WARN("Failed to get base path of '%s'.", buf);
-      return -1;
-   }
+   int ret;
 
    /* Load the space sprite. */
-   nsnprintf( str, PATH_MAX, SHIP_GFX_PATH"%s/%s"SHIP_EXT, base, buf );
-   rw    = ndata_rwops( str );
+   rw    = PHYSFSRWOPS_openRead( str );
    npng  = npng_open( rw );
    npng_dim( npng, &w, &h );
    surface = npng_readSurface( npng, gl_needPOT(), 1 );
@@ -504,29 +512,149 @@ static int ship_loadGFX( Ship *temp, char *buf, int sx, int sy, int engine )
          w, h, sx, sy, 0 );
 
    /* Create the target graphic. */
-   ship_genTargetGFX( temp, surface, sx, sy );
+   ret = ship_genTargetGFX( temp, surface, sx, sy );
+   if (ret != 0)
+      return ret;
 
    /* Free stuff. */
    npng_close( npng );
    SDL_RWclose( rw );
    SDL_FreeSurface( surface );
 
-   /* Load the engine sprite .*/
-   if (engine && conf.engineglow && conf.interpolate) {
-      nsnprintf( str, PATH_MAX, SHIP_GFX_PATH"%s/%s"SHIP_ENGINE SHIP_EXT, base, buf );
-      temp->gfx_engine = gl_newSprite( str, sx, sy, OPENGL_TEX_MIPMAPS );
-      if (temp->gfx_engine == NULL)
-         WARN("Ship '%s' does not have an engine sprite (%s).", temp->name, str );
-   }
-
    /* Calculate mount angle. */
    temp->mangle  = 2.*M_PI;
    temp->mangle /= temp->gfx_space->sx * temp->gfx_space->sy;
+   return 0;
+}
+
+
+/**
+ * @brief Loads the space graphics for a ship from an image.
+ *
+ *    @param temp Ship to load into.
+ *    @param str Path of the image to use.
+ *    @param sx Number of X sprites in image.
+ *    @param sy Number of Y sprites in image.
+ */
+static int ship_loadEngineImage( Ship *temp, char *str, int sx, int sy )
+{
+   temp->gfx_engine = gl_newSprite( str, sx, sy, OPENGL_TEX_MIPMAPS );
+   return (temp->gfx_engine != NULL);
+}
+
+
+/**
+ * @brief Loads the graphics for a ship.
+ *
+ *    @param temp Ship to load into.
+ *    @param buf Name of the texture to work with.
+ *    @param sx Number of X sprites in image.
+ *    @param sy Number of Y sprites in image.
+ *    @param engine Whether there is also an engine image to load.
+ */
+static int ship_loadGFX( Ship *temp, char *buf, int sx, int sy, int engine )
+{
+   char base[NDATA_PATH_MAX], str[PATH_MAX];
+   size_t i;
+
+   /* Get base path. */
+   for (i=0; i<sizeof(base); i++) {
+      if ((buf[i] == '\0') || (buf[i] == '_')) {
+         base[i] = '\0';
+         break;
+      }
+      base[i] = buf[i];
+   }
+   if (i>=sizeof(base)) {
+      WARN(_("Failed to get base path of '%s'."), buf);
+      return -1;
+   }
+
+   nsnprintf( str, PATH_MAX, SHIP_GFX_PATH"%s/%s"SHIP_EXT, base, buf );
+   ship_loadSpaceImage( temp, str, sx, sy );
+
+   /* Load the engine sprite .*/
+   if (engine && conf.engineglow) {
+      nsnprintf( str, PATH_MAX, SHIP_GFX_PATH"%s/%s"SHIP_ENGINE SHIP_EXT, base, buf );
+      ship_loadEngineImage( temp, str, sx, sy );
+      if (temp->gfx_engine == NULL)
+         WARN(_("Ship '%s' does not have an engine sprite (%s)."), temp->name, str );
+   }
 
    /* Get the comm graphic for future loading. */
    nsnprintf( str, PATH_MAX, SHIP_GFX_PATH"%s/%s"SHIP_COMM SHIP_EXT, base, buf );
    temp->gfx_comm = strdup(str);
 
+   return 0;
+}
+
+
+/**
+ * @brief Loads the collision polygon for a ship.
+ *
+ *    @param temp Ship to load into.
+ *    @param buf Name of the file.
+ */
+static int ship_loadPLG( Ship *temp, char *buf )
+{
+   char *file;
+   int sl;
+   CollPoly *polygon;
+   xmlDocPtr doc;
+   xmlNodePtr node, cur;
+
+   temp->npolygon = 0;
+
+   sl   = strlen(buf)+strlen(SHIP_POLYGON_PATH)+strlen(".xml")+1;
+   file = malloc( sl );
+
+   nsnprintf( file, sl, "%s%s.xml", SHIP_POLYGON_PATH, buf );
+
+   /* See if the file does exist. */
+   if (!PHYSFS_exists(file)) {
+      WARN(_("%s xml collision polygon does not exist!\n \
+               Please use the script 'polygon_from_sprite.py' if sprites are used,\n \
+               And 'polygonSTL.py' if 3D model is used in game.\n \
+               These files can be found in Naev's artwork repo."), file);
+      free(file);
+      return 0;
+   }
+
+   /* Load the XML. */
+   doc  = xml_parsePhysFS( file );
+
+   if (doc == NULL) {
+      free(file);
+      return 0;
+   }
+
+   node = doc->xmlChildrenNode; /* First polygon node */
+   if (node == NULL) {
+      xmlFreeDoc(doc);
+      WARN(_("Malformed %s file: does not contain elements"), file);
+      free(file);
+      return 0;
+   }
+
+   free(file);
+
+   do { /* load the polygon data */
+      if (xml_isNode(node,"polygons")) {
+         cur = node->children;
+         temp->polygon = malloc( sizeof(CollPoly) );
+         do {
+            if (xml_isNode(cur,"polygon")) {
+               temp->npolygon++;
+               temp->polygon = realloc( temp->polygon, sizeof(CollPoly) * temp->npolygon );
+               polygon = &temp->polygon[temp->npolygon-1];
+
+               LoadPolygon( polygon, cur );
+            }
+         } while (xml_nextNode(cur));
+      }
+   } while (xml_nextNode(node));
+
+   xmlFreeDoc(doc);
    return 0;
 }
 
@@ -547,7 +675,7 @@ static int ship_parseSlot( Ship *temp, ShipOutfitSlot *slot, OutfitSlotType type
    Outfit *o;
 
    /* Parse size. */
-   xmlr_attr( node, "size", buf );
+   xmlr_attr_strd( node, "size", buf );
    if (buf != NULL)
       base_size = outfit_toSlotSize( buf );
    else {
@@ -570,40 +698,22 @@ static int ship_parseSlot( Ship *temp, ShipOutfitSlot *slot, OutfitSlotType type
          typ       = "Small";
          base_size = OUTFIT_SLOT_SIZE_LIGHT;
       }
-      WARN("Ship '%s' has implicit slot size, setting to '%s'",temp->name, typ);
+      WARN(_("Ship '%s' has implicit slot size, setting to '%s'"),temp->name, typ);
    }
    free(buf);
 
    /* Get mount point for weapons. */
    if (type == OUTFIT_SLOT_WEAPON) {
-      xmlr_attr(node,"x",buf);
-      if (buf!=NULL) {
-         slot->mount.x = atof(buf);
-         free(buf);
-      }
-      else
-         WARN("Ship '%s' missing 'x' element of 'weapon' slot.",temp->name);
-      xmlr_attr(node,"y",buf);
-      if (buf!=NULL) {
-         slot->mount.y = atof(buf);
-         /* Since we measure in pixels, we have to modify it so it
-          *  doesn't get corrected by the ortho correction. */
-         slot->mount.y *= M_SQRT2;
-         free(buf);
-      }
-      else
-         WARN("Ship '%s' missing 'y' element of 'weapon' slot.",temp->name);
-      xmlr_attr(node,"h",buf);
-      if (buf!=NULL) {
-         slot->mount.h = atof(buf);
-         free(buf);
-      }
-      else
-         WARN("Ship '%s' missing 'h' element of 'weapon' slot.",temp->name);
+      xmlr_attr_float( node, "x", slot->mount.x );
+      xmlr_attr_float( node, "y", slot->mount.y );
+      /* Since we measure in pixels, we have to modify it so it
+       *  doesn't get corrected by the ortho correction. */
+      slot->mount.y *= M_SQRT2;
+      xmlr_attr_float( node, "h", slot->mount.h );
    }
 
    /* Parse property. */
-   xmlr_attr( node, "prop", buf );
+   xmlr_attr_strd( node, "prop", buf );
    if (buf != NULL) {
       slot->slot.spid = sp_get( buf );
       slot->exclusive = sp_exclusive( slot->slot.spid );
@@ -612,29 +722,21 @@ static int ship_parseSlot( Ship *temp, ShipOutfitSlot *slot, OutfitSlotType type
    }
    //TODO: consider inserting those two parse blocks below inside the parse block above
 
-   /* Parse exclusive flag. */
-   xmlr_attr( node, "exclusive", buf );
-   if (buf != NULL) {
-      slot->exclusive = atoi( buf );
-      free( buf );
-   }
+   /* Parse exclusive flag, default false. */
+   xmlr_attr_int( node, "exclusive", slot->exclusive );
    //TODO: decide if exclusive should even belong in ShipOutfitSlot, remove this hack, and fix slot->exclusive to slot->slot.exclusive in it's two previous occurrences, meaning three lines above and 12 lines above
    /* hack */
    slot->slot.exclusive=slot->exclusive;
 
-   /* Parse required flag. */
-   xmlr_attr( node, "required", buf );
-   if (buf != NULL) {
-      slot->required  = atoi( buf );
-      free( buf );
-   }
+   /* Parse required flag, default false. */
+   xmlr_attr_int( node, "required", slot->required );
 
    /* Parse default outfit. */
    buf = xml_get(node);
    if (buf != NULL) {
       o = outfit_get( buf );
       if (o == NULL)
-         WARN( "Ship '%s' has default outfit '%s' which does not exist.", temp->name, buf );
+         WARN( _("Ship '%s' has default outfit '%s' which does not exist."), temp->name, buf );
       slot->data = o;
    }
 
@@ -644,13 +746,13 @@ static int ship_parseSlot( Ship *temp, ShipOutfitSlot *slot, OutfitSlotType type
 
    /* Required slots need a default outfit. */
    if (slot->required && (slot->data == NULL))
-      WARN("Ship '%s' has required slot without a default outfit.", temp->name);
+      WARN(_("Ship '%s' has required slot without a default outfit."), temp->name);
 
    return 0;
 }
 
 /**
- * @brief Extracts the ingame ship from an XML node.
+ * @brief Extracts the in-game ship from an XML node.
  *
  *    @param temp Ship to load data into.
  *    @param parent Node to get ship from.
@@ -661,8 +763,9 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
    int i;
    xmlNodePtr cur, node;
    int sx, sy;
-   char *stmp, *buf;
-   int l, m, h, engine;
+   char *buf;
+   char str[PATH_MAX];
+   int l, m, h, noengine;
    ShipStatList *ll;
 
    /* Clear memory. */
@@ -672,9 +775,9 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
    ss_statsInit( &temp->stats_array );
 
    /* Get name. */
-   xmlr_attr(parent,"name",temp->name);
+   xmlr_attr_strd( parent, "name", temp->name );
    if (temp->name == NULL)
-      WARN("Ship in "SHIP_DATA_PATH" has invalid or no name");
+      WARN( _("Ship in %s has invalid or no name"), SHIP_DATA_PATH );
 
    /* Datat that must be loaded first. */
    node = parent->xmlChildrenNode;
@@ -698,37 +801,112 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
          /* Get base graphic name. */
          buf = xml_get(node);
          if (buf==NULL) {
-            WARN("Ship '%s': GFX element is NULL", temp->name);
+            WARN(_("Ship '%s': GFX element is NULL"), temp->name);
             continue;
          }
 
          /* Get sprite size. */
-         xmlr_attr(node, "sx", stmp );
-         if (stmp != NULL) {
-            sx = atoi(stmp);
-            free(stmp);
-         }
-         else
+         xmlr_attr_atoi_neg1( node, "sx", sx );
+         if (sx == -1)
             sx = 8;
-         xmlr_attr(node, "sy", stmp );
-         if (stmp != NULL) {
-            sy = atoi(stmp);
-            free(stmp);
-         }
-         else
+         xmlr_attr_atoi_neg1( node, "sy", sy );
+         if (sy == -1)
             sy = 8;
 
-         xmlr_attr(node, "noengine", stmp );
-         if (stmp != NULL) {
-            engine = 0;
-            free(stmp);
-         }
-         else
-            engine = 1;
+         xmlr_attr_int(node, "noengine", noengine );
 
          /* Load the graphics. */
-         ship_loadGFX( temp, buf, sx, sy, engine );
+         ship_loadGFX( temp, buf, sx, sy, !noengine );
 
+         /* Load the polygon. */
+         ship_loadPLG( temp, buf );
+
+         /* Validity check: there must be 1 polygon per sprite. */
+         if (temp->npolygon != sx*sy) {
+            WARN(_("Ship '%s': the number of collision polygons is wrong.\n \
+                    npolygon = %i and sx*sy = %i"),
+                    temp->name, temp->npolygon, sx*sy);
+         }
+
+         continue;
+      }
+
+      if (xml_isNode(node,"gfx_space")) {
+
+         /* Get path */
+         buf = xml_get(node);
+         if (buf==NULL) {
+            WARN(_("Ship '%s': gfx_space element is NULL"), temp->name);
+            continue;
+         }
+         nsnprintf( str, PATH_MAX, GFX_PATH"%s", buf );
+
+         /* Get sprite size. */
+         xmlr_attr_atoi_neg1( node, "sx", sx );
+         if (sx == -1)
+            sx = 8;
+         xmlr_attr_atoi_neg1( node, "sy", sy );
+         if (sy == -1)
+            sy = 8;
+
+         /* Load the graphics. */
+         ship_loadSpaceImage( temp, str, sx, sy );
+
+         continue;
+      }
+
+      if (xml_isNode(node,"gfx_engine")) {
+
+         /* Get path */
+         buf = xml_get(node);
+         if (buf==NULL) {
+            WARN(_("Ship '%s': gfx_engine element is NULL"), temp->name);
+            continue;
+         }
+         nsnprintf( str, PATH_MAX, GFX_PATH"%s", buf );
+
+         /* Get sprite size. */
+         xmlr_attr_atoi_neg1( node, "sx", sx );
+         if (sx == -1)
+            sx = 8;
+         xmlr_attr_atoi_neg1( node, "sy", sy );
+         if (sy == -1)
+            sy = 8;
+
+         /* Load the graphics. */
+         ship_loadEngineImage( temp, str, sx, sy );
+
+         continue;
+      }
+
+      if (xml_isNode(node,"gfx_comm")) {
+
+         /* Get path */
+         buf = xml_get(node);
+         if (buf==NULL) {
+            WARN(_("Ship '%s': gfx_comm element is NULL"), temp->name);
+            continue;
+         }
+         nsnprintf( str, PATH_MAX, GFX_PATH"%s", buf );
+         temp->gfx_comm = strdup(str);
+         continue;
+      }
+      if (xml_isNode(node,"gfx_overlays")) {
+         cur = node->children;
+         m = 2;
+         temp->gfx_overlays = malloc( m*sizeof(glTexture*) );
+         do {
+            xml_onlyNodes(cur);
+            if (xml_isNode(cur,"gfx_overlay")) {
+               temp->gfx_noverlays += 1;
+               if (temp->gfx_noverlays > m) {
+                  m *= 2;
+                  temp->gfx_overlays = realloc( temp->gfx_overlays, m * sizeof( glTexture * ) );
+               }
+               temp->gfx_overlays[ temp->gfx_noverlays-1 ] = xml_parseTexture( cur,
+                     OVERLAY_GFX_PATH"%s.png", 1, 1, OPENGL_TEX_MIPMAPS );
+            }
+         } while (xml_nextNode(cur));
          continue;
       }
 
@@ -742,10 +920,12 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
          /* Already preemptively loaded, avoids warning. */
          continue;
       }
+      xmlr_float(node,"time_mod",temp->dt_default);
       xmlr_long(node,"price",temp->price);
       xmlr_strd(node,"license",temp->license);
       xmlr_strd(node,"fabricator",temp->fabricator);
       xmlr_strd(node,"description",temp->description);
+      xmlr_int(node,"rarity",temp->rarity);
       if (xml_isNode(node,"movement")) {
          cur = node->children;
          do {
@@ -754,7 +934,7 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
             xmlr_float(cur,"turn",temp->turn);
             xmlr_float(cur,"speed",temp->speed);
             /* All the xmlr_ stuff have continue cases. */
-            WARN("Ship '%s' has unknown movement node '%s'.", temp->name, cur->name);
+            WARN(_("Ship '%s' has unknown movement node '%s'."), temp->name, cur->name);
          } while (xml_nextNode(cur));
          continue;
       }
@@ -770,7 +950,7 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
             xmlr_float(cur,"energy",temp->energy);
             xmlr_float(cur,"energy_regen",temp->energy_regen);
             /* All the xmlr_ stuff have continue cases. */
-            WARN("Ship '%s' has unknown health node '%s'.", temp->name, cur->name);
+            WARN(_("Ship '%s' has unknown health node '%s'."), temp->name, cur->name);
          } while (xml_nextNode(cur));
          continue;
       }
@@ -782,10 +962,10 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
             xmlr_float(cur,"mass",temp->mass);
             xmlr_float(cur,"cpu",temp->cpu);
             xmlr_int(cur,"fuel",temp->fuel);
-            xmlr_float(cur,"fuel_consumption",temp->fuel_consumption);
+            xmlr_int(cur,"fuel_consumption",temp->fuel_consumption);
             xmlr_float(cur,"cargo",temp->cap_cargo);
             /* All the xmlr_ stuff have continue cases. */
-            WARN("Ship '%s' has unknown characteristic node '%s'.", temp->name, cur->name);
+            WARN(_("Ship '%s' has unknown characteristic node '%s'."), temp->name, cur->name);
          } while (xml_nextNode(cur));
          continue;
       }
@@ -801,7 +981,7 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
             else if (xml_isNode(cur,"weapon"))
                temp->outfit_nweapon++;
             else
-               WARN("Ship '%s' has unknown slot node '%s'.", temp->name, cur->name);
+               WARN(_("Ship '%s' has unknown slot node '%s'."), temp->name, cur->name);
          } while (xml_nextNode(cur));
 
          /* Allocate the space. */
@@ -840,7 +1020,7 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
                temp->stats = ll;
                continue;
             }
-            WARN("Ship '%s' has unknown stat '%s'.", temp->name, cur->name);
+            WARN(_("Ship '%s' has unknown stat '%s'."), temp->name, cur->name);
          } while (xml_nextNode(cur));
 
          /* Load array. */
@@ -860,11 +1040,11 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
          continue;
       }
 
-      /* Used by in-sanity and NSH utils, no in-game meaning. */
+      /* Used by on-valid and NSH utils, no in-game meaning. */
       if (xml_isNode(node,"mission"))
          continue;
 
-      DEBUG("Ship '%s' has unknown node '%s'.", temp->name, node->name);
+      DEBUG(_("Ship '%s' has unknown node '%s'."), temp->name, node->name);
    } while (xml_nextNode(node));
 
    /* Post processing. */
@@ -872,13 +1052,14 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
    temp->turn         *= M_PI / 180.; /* Convert to rad. */
 
    /* ship validator */
-#define MELEMENT(o,s)      if (o) WARN("Ship '%s' missing '"s"' element", temp->name)
+#define MELEMENT(o,s)      if (o) WARN( _("Ship '%s' missing '%s' element"), temp->name, s)
    MELEMENT(temp->name==NULL,"name");
    MELEMENT(temp->base_type==NULL,"base_type");
-   MELEMENT(temp->gfx_space==NULL,"GFX");
+   MELEMENT((temp->gfx_space==NULL) || (temp->gfx_comm==NULL),"GFX");
    MELEMENT(temp->gui==NULL,"GUI");
    MELEMENT(temp->class==SHIP_CLASS_NULL,"class");
    MELEMENT(temp->price==0,"price");
+   MELEMENT(temp->dt_default==0.,"time_mod");
    MELEMENT(temp->fabricator==NULL,"fabricator");
    MELEMENT(temp->description==NULL,"description");
    MELEMENT(temp->armour==0.,"armour");
@@ -892,7 +1073,7 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
    MELEMENT(temp->fuel==0.,"fuel");*/
    MELEMENT(temp->crew==0,"crew");
    MELEMENT(temp->mass==0.,"mass");
-   MELEMENT(temp->fuel_consumption==0.,"fuel_consumption");
+   MELEMENT(temp->fuel_consumption==0,"fuel_consumption");
    /*MELEMENT(temp->cap_cargo==0,"cargo");
    MELEMENT(temp->cpu==0.,"cpu");*/
 #undef MELEMENT
@@ -908,35 +1089,33 @@ static int ship_parse( Ship *temp, xmlNodePtr parent )
  */
 int ships_load (void)
 {
-   uint32_t bufsize, nfiles;
-   char *buf, **ship_files, *file;
+   size_t nfiles;
+   char **ship_files, *file;
    int i, sl;
    xmlNodePtr node;
    xmlDocPtr doc;
 
-   /* Sanity. */
+   /* Validity. */
    ss_check();
+
+   ship_files = PHYSFS_enumerateFiles( SHIP_DATA_PATH );
+   for (nfiles=0; ship_files[nfiles]!=NULL; nfiles++) {}
 
    /* Initialize stack if needed. */
    if (ship_stack == NULL) {
-      ship_stack = array_create(Ship);
+      ship_stack = array_create_size(Ship, nfiles);
    }
 
-   ship_files = ndata_list( SHIP_DATA_PATH, &nfiles );
-   for (i=0; i<(int)nfiles; i++) {
-
+   for (i=0; ship_files[i]!=NULL; i++) {
       /* Get the file name .*/
       sl   = strlen(SHIP_DATA_PATH)+strlen(ship_files[i])+1;
       file = malloc( sl );
       nsnprintf( file, sl, "%s%s", SHIP_DATA_PATH, ship_files[i] );
 
       /* Load the XML. */
-      buf  = ndata_read( file, &bufsize );
-      doc  = xmlParseMemory( buf, bufsize );
+      doc  = xml_parsePhysFS( file );
 
       if (doc == NULL) {
-         free(buf);
-         WARN("%s file is invalid xml!", file);
          free(file);
          continue;
       }
@@ -944,8 +1123,7 @@ int ships_load (void)
       node = doc->xmlChildrenNode; /* First ship node */
       if (node == NULL) {
          xmlFreeDoc(doc);
-         free(buf);
-         WARN("Malformed %s file: does not contain elements", file);
+         WARN(_("Malformed %s file: does not contain elements"), file);
          free(file);
          continue;
       }
@@ -958,17 +1136,14 @@ int ships_load (void)
 
       /* Clean up. */
       xmlFreeDoc(doc);
-      free(buf);
    }
 
    /* Shrink stack. */
    array_shrink(&ship_stack);
-   DEBUG("Loaded %d Ship%s", array_size(ship_stack), (array_size(ship_stack)==1) ? "" : "s" );
+   DEBUG( ngettext( "Loaded %d Ship", "Loaded %d Ships", array_size(ship_stack) ), array_size(ship_stack) );
 
    /* Clean up. */
-   for (i=0; i<(int)nfiles; i++)
-      free( ship_files[i] );
-   free( ship_files );
+   PHYSFS_freeList( ship_files );
 
    return 0;
 }
@@ -1000,26 +1175,30 @@ void ships_free (void)
          outfit_freeSlot( &s->outfit_utility[j].slot );
       for (j=0; j<s->outfit_nweapon; j++)
          outfit_freeSlot( &s->outfit_weapon[j].slot );
-      if (s->outfit_structure != NULL)
-         free(s->outfit_structure);
-      if (s->outfit_utility != NULL)
-         free(s->outfit_utility);
-      if (s->outfit_weapon != NULL)
-         free(s->outfit_weapon);
+      free(s->outfit_structure);
+      free(s->outfit_utility);
+      free(s->outfit_weapon);
 
-      /* Free stats. */
-      if (s->stats != NULL)
-         ss_free( s->stats );
+      ss_free( s->stats );
 
       /* Free graphics. */
       gl_freeTexture(s->gfx_space);
-      if (s->gfx_engine != NULL)
-         gl_freeTexture(s->gfx_engine);
-      if (s->gfx_target != NULL)
-         gl_freeTexture(s->gfx_target);
-      if (s->gfx_store != NULL)
-         gl_freeTexture(s->gfx_store);
+      gl_freeTexture(s->gfx_engine);
+      gl_freeTexture(s->gfx_target);
+      gl_freeTexture(s->gfx_store);
       free(s->gfx_comm);
+      for (j=0; j<s->gfx_noverlays; j++)
+         gl_freeTexture(s->gfx_overlays[j]);
+      free(s->gfx_overlays);
+
+      /* Free collision polygons. */
+      if (s->npolygon != 0) {
+         for (j=0; j<s->npolygon; j++) {
+            free(s->polygon[j].x);
+            free(s->polygon[j].y);
+         }
+         free(s->polygon);
+      }
    }
 
    array_free(ship_stack);

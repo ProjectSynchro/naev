@@ -8,16 +8,18 @@
  * @brief Handles the outfit development routines.
  */
 
-#include "dev_outfit.h"
-
-#include "naev.h"
-
+/** @cond */
 #include "SDL.h"
 
-#include "log.h"
-#include "outfit.h"
+#include "naev.h"
+/** @endcond */
+
+#include "dev_outfit.h"
+
 #include "damagetype.h"
+#include "log.h"
 #include "nstring.h"
+#include "outfit.h"
 
 
 /**
@@ -34,7 +36,7 @@ void dout_csvBolt( const char *path )
    /* File to output to. */
    rw = SDL_RWFromFile( path, "w" );
    if (rw == NULL) {
-      WARN("Unable to open '%s' for writing: %s", path, SDL_GetError());
+      WARN(_("Unable to open '%s' for writing: %s"), path, SDL_GetError());
       return;
    }
 
@@ -94,7 +96,7 @@ void dout_csvBeam( const char *path )
    /* File to output to. */
    rw = SDL_RWFromFile( path, "w" );
    if (rw == NULL) {
-      WARN("Unable to open '%s' for writing: %s", path, SDL_GetError());
+      WARN(_("Unable to open '%s' for writing: %s"), path, SDL_GetError());
       return;
    }
 
@@ -150,7 +152,7 @@ void dout_csvLauncher( const char *path )
    /* File to output to. */
    rw = SDL_RWFromFile( path, "w" );
    if (rw == NULL) {
-      WARN("Unable to open '%s' for writing: %s", path, SDL_GetError());
+      WARN(_("Unable to open '%s' for writing: %s"), path, SDL_GetError());
       return;
    }
 
@@ -204,7 +206,7 @@ void dout_csvAmmo( const char *path )
    /* File to output to. */
    rw = SDL_RWFromFile( path, "w" );
    if (rw == NULL) {
-      WARN("Unable to open '%s' for writing: %s", path, SDL_GetError());
+      WARN(_("Unable to open '%s' for writing: %s"), path, SDL_GetError());
       return;
    }
 
@@ -241,7 +243,7 @@ void dout_csvAmmo( const char *path )
             "%f,%s,%f,%f\n",
             o->name, outfit_getType(o), o->license,
             o->mass, o->price,
-            o->u.amm.duration, o->u.amm.resist * 100, ai,
+            o->u.amm.duration, o->u.amm.resist, ai,
             o->u.amm.speed, o->u.amm.turn * 180 / M_PI, o->u.amm.thrust, o->u.amm.energy,
             dmg->penetration * 100, dtype_damageTypeToStr(dmg->type), dmg->damage, dmg->disable
             );
@@ -274,7 +276,7 @@ void dout_csvMod( const char *path )
    /* File to output to. */
    rw = SDL_RWFromFile( path, "w" );
    if (rw == NULL) {
-      WARN("Unable to open '%s' for writing: %s", path, SDL_GetError());
+      WARN(_("Unable to open '%s' for writing: %s"), path, SDL_GetError());
       return;
    }
 
@@ -301,12 +303,12 @@ void dout_csvMod( const char *path )
          continue;
 
       stats = base;
-      ss_statsModFromList( &stats, o->u.mod.stats, NULL );
+      ss_statsModFromList( &stats, o->stats, NULL );
 
       l = nsnprintf( buf, sizeof(buf),
             "%s,%s,%s,%s,"
             "%s,%f,%"CREDITS_PRI",%f,%f,"
-            "%f,%f,%f,%f,%f,"
+            "%f,%f,%f,%d,%f,"
             "%f,%f,"
             "%f,%f,"
             "%f,%f,"

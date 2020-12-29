@@ -7,8 +7,7 @@
 #  define NLUA_OUTFIT_H
 
 
-#include <lua.h>
-
+#include "nlua.h"
 #include "outfit.h"
 
 
@@ -18,7 +17,7 @@
 /*
  * Library loading
  */
-int nlua_loadOutfit( lua_State *L, int readonly );
+int nlua_loadOutfit( nlua_env env );
 
 /*
  * Outfit operations

@@ -27,19 +27,18 @@
  */
 
 
-#include "pilot.h"
-
+/** @cond */
 #include "naev.h"
+/** @endcond */
 
-#include "nxml.h"
-
-#include "log.h"
 #include "array.h"
-#include "weapon.h"
 #include "escort.h"
-
+#include "log.h"
+#include "nxml.h"
+#include "pilot.h"
 #include "player.h"
 #include "spfx.h"
+#include "weapon.h"
 
 
 /*
@@ -77,6 +76,8 @@ static int pilot_weapSetFire( Pilot *p, PilotWeaponSet *ws, int level )
 {
    int i, j, ret, s;
    Pilot *pt;
+   AsteroidAnchor *field;
+   Asteroid *ast;
    double time;
    Outfit *o;
 
@@ -119,14 +120,22 @@ static int pilot_weapSetFire( Pilot *p, PilotWeaponSet *ws, int level )
 
       /* If inrange is set we only fire at targets in range. */
       time = INFINITY;  /* With no target we just set time to infinity. */
-      if (p->target != p->id){
+
+      /* Calculate time to target if it is there. */
+      if (p->target != p->id) {
          pt = pilot_get( p->target );
          if (pt != NULL)
-            time = pilot_weapFlyTime( o, p, pt);
-         }
+            time = pilot_weapFlyTime( o, p, &pt->solid->pos, &pt->solid->vel);
+      }
+      /* Looking for a closer targeted asteroid */
+      if (p->nav_asteroid != -1) {
+         field = &cur_system->asteroids[p->nav_anchor];
+         ast = &field->asteroids[p->nav_asteroid];
+         time = MIN( time, pilot_weapFlyTime( o, p, &ast->pos, &ast->vel) );
+      }
 
       /* Only "inrange" outfits. */
-      if ( ws->inrange && outfit_duration(o) < time)
+      if (ws->inrange && outfit_duration(o) < time)
          continue;
 
       /* Shoot the weapon of the weaponset. */
@@ -162,7 +171,6 @@ void pilot_weapSetPress( Pilot* p, int id, int type )
 {
    int i, l, on, n;
    PilotWeaponSet *ws;
-
    ws = pilot_weapSet(p,id);
    /* Case no outfits. */
    if (ws->slots == NULL)
@@ -308,7 +316,7 @@ int pilot_weapSetTypeCheck( Pilot* p, int id )
  *
  *    @param p Pilot to manipulate.
  *    @param id ID of the weapon set.
- *    @param fire Whether or not to enable fire mode.
+ *    @param type The mode (a WEAPSET_TYPE constant).
  */
 void pilot_weapSetType( Pilot* p, int id, int type )
 {
@@ -368,11 +376,11 @@ const char *pilot_weapSetName( Pilot* p, int id )
    PilotWeaponSet *ws;
    ws = pilot_weapSet(p,id);
    if ((ws->slots == NULL) || (array_size(ws->slots)==0))
-      return "Unused";
+      return _("Unused");
    switch (ws->type) {
-      case WEAPSET_TYPE_CHANGE: return "Weapons - Switched";  break;
-      case WEAPSET_TYPE_WEAPON: return "Weapons - Instant";   break;
-      case WEAPSET_TYPE_ACTIVE: return "Abilities - Toggled"; break;
+      case WEAPSET_TYPE_CHANGE: return _("Weapons - Switched");  break;
+      case WEAPSET_TYPE_WEAPON: return _("Weapons - Instant");   break;
+      case WEAPSET_TYPE_ACTIVE: return _("Abilities - Toggled"); break;
    }
    return NULL;
 }
@@ -588,7 +596,7 @@ static void pilot_weapSetUpdateRange( PilotWeaponSet *ws )
          continue;
 
       /* Empty Launchers aren't valid */
-      if (outfit_isLauncher(ws->slots[i].slot->outfit) && ws->slots[i].slot->u.ammo.quantity <= 0)
+      if (outfit_isLauncher(ws->slots[i].slot->outfit) && (ws->slots[i].slot->u.ammo.quantity <= 0))
          continue;
 
       /* Get range. */
@@ -630,7 +638,7 @@ static void pilot_weapSetUpdateRange( PilotWeaponSet *ws )
  *
  *    @param p Pilot to get the range of.
  *    @param id ID of weapon set to get the range of.
- *    @param Level of the weapons to get the range of (-1 for all).
+ *    @param level Level of the weapons to get the range of (-1 for all).
  */
 double pilot_weapSetRange( Pilot* p, int id, int level )
 {
@@ -656,7 +664,7 @@ double pilot_weapSetRange( Pilot* p, int id, int level )
  *
  *    @param p Pilot to get the speed of.
  *    @param id ID of weapon set to get the speed of.
- *    @param Level of the weapons to get the speed of (-1 for all).
+ *    @param level Level of the weapons to get the speed of (-1 for all).
  */
 double pilot_weapSetSpeed( Pilot* p, int id, int level )
 {
@@ -864,45 +872,45 @@ void pilot_stopBeam( Pilot *p, PilotOutfitSlot *w )
 /**
  * @brief Computes an estimation of ammo flying time
  *
- *    @param w the weapon that shoot
- *    @param parent Parent of the weapon
- *    @param target Target of the weapon
+ *    @param o the weapon to shoot.
+ *    @param parent Parent of the weapon.
+ *    @param pos Target of the weapon.
+ *    @param vel Target's velocity.
  */
-double pilot_weapFlyTime( Outfit *o, Pilot *parent, Pilot *target)
+double pilot_weapFlyTime( Outfit *o, Pilot *parent, Vector2d *pos, Vector2d *vel)
 {
    Vector2d approach_vector, relative_location, orthoradial_vector;
    double speed, radial_speed, orthoradial_speed, dist, t;
 
-   dist = vect_dist( &parent->solid->pos, &target->solid->pos );
+   dist = vect_dist( &parent->solid->pos, pos );
 
    /* Beam weapons */
-   if (outfit_isBeam(o))
-      {
+   if (outfit_isBeam(o)) {
       if (dist > o->u.bem.range)
          return INFINITY;
       return 0.;
-      }
+   }
 
    /* A bay doesn't have range issues */
    if (outfit_isFighterBay(o))
       return 0.;
 
-   /* Rockets use absolute velocity while bolt use relative vel */
-   if (outfit_isLauncher(o))
-         vect_cset( &approach_vector, - VX(target->solid->vel), - VY(target->solid->vel) );
+   /* Missiles use absolute velocity while bolts and unguided rockets use relative vel */
+   if (outfit_isLauncher(o) && o->u.lau.ammo->u.amm.ai != AMMO_AI_UNGUIDED)
+         vect_cset( &approach_vector, - vel->x, - vel->y );
    else
-         vect_cset( &approach_vector, VX(parent->solid->vel) - VX(target->solid->vel),
-               VY(parent->solid->vel) - VY(target->solid->vel) );
+         vect_cset( &approach_vector, VX(parent->solid->vel) - vel->x,
+               VY(parent->solid->vel) - vel->y );
 
    speed = outfit_speed(o);
 
-   /* Get the vector : shooter -> target*/
-   vect_cset( &relative_location, VX(target->solid->pos) - VX(parent->solid->pos),
-         VY(target->solid->pos) - VY(parent->solid->pos) );
+   /* Get the vector : shooter -> target */
+   vect_cset( &relative_location, pos->x - VX(parent->solid->pos),
+         pos->y - VY(parent->solid->pos) );
 
-   /* Get the orthogonal vector*/
-   vect_cset(&orthoradial_vector, VY(parent->solid->pos) - VY(target->solid->pos),
-         VX(target->solid->pos) -  VX(parent->solid->pos) );
+   /* Get the orthogonal vector */
+   vect_cset(&orthoradial_vector, VY(parent->solid->pos) - pos->y,
+         pos->x -  VX(parent->solid->pos) );
 
    radial_speed = vect_dot( &approach_vector, &relative_location );
    radial_speed = radial_speed / VMOD(relative_location);
@@ -910,18 +918,18 @@ double pilot_weapFlyTime( Outfit *o, Pilot *parent, Pilot *target)
    orthoradial_speed = vect_dot(&approach_vector, &orthoradial_vector);
    orthoradial_speed = orthoradial_speed / VMOD(relative_location);
 
-   if( ((speed*speed - VMOD(approach_vector)*VMOD(approach_vector)) != 0) && (speed*speed - orthoradial_speed*orthoradial_speed) > 0)
+   if ( ((speed*speed - VMOD(approach_vector)*VMOD(approach_vector)) != 0) && (speed*speed - orthoradial_speed*orthoradial_speed) > 0)
       t = dist * (sqrt( speed*speed - orthoradial_speed*orthoradial_speed ) - radial_speed) /
             (speed*speed - VMOD(approach_vector)*VMOD(approach_vector));
    else
       return INFINITY;
 
-   /* if t < 0, try the other solution*/
+   /* if t < 0, try the other solution */
    if (t < 0)
       t = - dist * (sqrt( speed*speed - orthoradial_speed*orthoradial_speed ) + radial_speed) /
             (speed*speed - VMOD(approach_vector)*VMOD(approach_vector));
 
-   /* if t still < 0, no solution*/
+   /* if t still < 0, no solution */
    if (t < 0)
       return INFINITY;
 
@@ -1030,6 +1038,7 @@ static int pilot_shootWeapon( Pilot* p, PilotOutfitSlot* w, double time )
    double rate_mod, energy_mod;
    double energy;
    int j;
+   int dockslot = -1;
 
    /* Make sure weapon has outfit. */
    if (w->outfit == NULL)
@@ -1100,8 +1109,8 @@ static int pilot_shootWeapon( Pilot* p, PilotOutfitSlot* w, double time )
     */
    else if (outfit_isLauncher(w->outfit)) {
 
-      /* Shooter can't be the target - sanity check for the player.p */
-      if ((w->outfit->u.lau.ammo->u.amm.ai != AMMO_AI_DUMB) && (p->id==p->target))
+      /* Shooter can't be the target - safety check for the player.p */
+      if ((w->outfit->u.lau.ammo->u.amm.ai != AMMO_AI_UNGUIDED) && (p->id==p->target))
          return 0;
 
       /* Must have ammo left. */
@@ -1124,6 +1133,10 @@ static int pilot_shootWeapon( Pilot* p, PilotOutfitSlot* w, double time )
 
       pilot_updateMass( p );
 
+      /* Make the AI aware a seeker has been shot */
+      if (outfit_isSeeker(w->outfit))
+         p->shoot_indicator = 1;
+
       /* If last ammo was shot, update the range */
       if (w->u.ammo.quantity <= 0) {
          for (j=0; j<PILOT_WEAPON_SETS; j++)
@@ -1140,17 +1153,22 @@ static int pilot_shootWeapon( Pilot* p, PilotOutfitSlot* w, double time )
       if ((w->u.ammo.outfit == NULL) || (w->u.ammo.quantity <= 0))
          return 0;
 
+      /* Get index of outfit slot */
+      for (j=0; j<p->noutfits; j++) {
+         if (p->outfits[j] == w)
+            dockslot = j;
+      }
+
       /* Create the escort. */
       escort_create( p, w->u.ammo.outfit->u.fig.ship,
-            &vp, &p->solid->vel, p->solid->dir, ESCORT_TYPE_BAY, 1 );
+            &vp, &p->solid->vel, p->solid->dir, ESCORT_TYPE_BAY, 1, dockslot );
 
       w->u.ammo.quantity -= 1; /* we just shot it */
       p->mass_outfit     -= w->u.ammo.outfit->mass;
-      w->u.ammo.deployed += 1; /* Mark as deployed. */
       pilot_updateMass( p );
    }
    else
-      WARN("Shooting unknown weapon type: %s", w->outfit->name);
+      WARN(_("Shooting unknown weapon type: %s"), w->outfit->name);
 
 
    /* Reset timer. */
@@ -1166,7 +1184,7 @@ static int pilot_shootWeapon( Pilot* p, PilotOutfitSlot* w, double time )
  *    @param[out] rate_mod Fire rate multiplier.
  *    @param[out] energy_mod Energy use multiplier.
  *    @param p Pilot who owns the outfit.
- *    @param w Pilot's outfit.
+ *    @param o Pilot's outfit.
  */
 void pilot_getRateMod( double *rate_mod, double* energy_mod,
       Pilot* p, Outfit *o )
@@ -1242,7 +1260,7 @@ void pilot_weaponAuto( Pilot *p )
 
    /* All should be inrange. */
    if (!pilot_isPlayer(p))
-      for (i=0; i<PILOT_WEAPON_SETS; i++){
+      for (i=0; i<PILOT_WEAPON_SETS; i++) {
          pilot_weapSetInrange( p, i, 1 );
          /* Update range and speed (at 0)*/
          pilot_weapSetUpdateRange( &p->weapon_sets[i] );
@@ -1315,7 +1333,7 @@ void pilot_weaponSetDefault( Pilot *p )
    int i;
 
    /* If current set isn't a fire group no need to worry. */
-   if (!p->weapon_sets[ p->active_set ].type == WEAPSET_TYPE_CHANGE) {
+   if (p->weapon_sets[ p->active_set ].type != WEAPSET_TYPE_CHANGE) {
       /* Update active weapon set. */
       pilot_weapSetUpdateOutfits( p, &p->weapon_sets[ p->active_set ] );
       return;
@@ -1323,7 +1341,7 @@ void pilot_weaponSetDefault( Pilot *p )
 
    /* Find first fire group. */
    for (i=0; i<PILOT_WEAPON_SETS; i++)
-      if (!p->weapon_sets[i].type != WEAPSET_TYPE_CHANGE)
+      if (p->weapon_sets[i].type == WEAPSET_TYPE_CHANGE)
          break;
 
    /* Set active set to first if all fire groups or first non-fire group. */
@@ -1338,11 +1356,11 @@ void pilot_weaponSetDefault( Pilot *p )
 
 
 /**
- * @brief Sets the weapon set as sane.
+ * @brief Sets the weapon set as safe.
  *
- *    @param p Pilot to set weapons as sane.
+ *    @param p Pilot to set weapons as safe.
  */
-void pilot_weaponSane( Pilot *p )
+void pilot_weaponSafe( Pilot *p )
 {
    int i, j;
    int n, l;
@@ -1382,6 +1400,7 @@ void pilot_weaponSane( Pilot *p )
  * @brief Disables a given active outfit.
  *
  * @param p Pilot whose outfit we are disabling.
+ * @param o Outfit to disable.
  * @return Whether the outfit was actually disabled.
  */
 int pilot_outfitOff( Pilot *p, PilotOutfitSlot *o )

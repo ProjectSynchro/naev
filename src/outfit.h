@@ -8,10 +8,11 @@
 #  define OUTFIT_H
 
 
+#include "collision.h"
+#include "commodity.h"
 #include "opengl.h"
-#include "sound.h"
-#include "economy.h"
 #include "shipstats.h"
+#include "sound.h"
 
 
 /*
@@ -19,12 +20,23 @@
  */
 #define outfit_isProp(o,p)          ((o)->properties & p) /**< Checks an outfit for property. */
 /* property flags */
-#define OUTFIT_PROP_WEAP_SECONDARY     (1<<0) /**< Is a secondary weapon? */
-#define OUTFIT_PROP_WEAP_SPIN          (1<<1) /**< Should weapon spin around? */
-#define OUTFIT_PROP_WEAP_BLOWUP_ARMOUR (1<<2) /**< Weapon blows up (armour spfx)
+#define OUTFIT_PROP_UNIQUE             (1<<0) /**< Unique item (can only have one). Not sellable.*/
+#define OUTFIT_PROP_WEAP_SECONDARY     (1<<10) /**< Is a secondary weapon? */
+#define OUTFIT_PROP_WEAP_SPIN          (1<<11) /**< Should weapon spin around? */
+#define OUTFIT_PROP_WEAP_BLOWUP_ARMOUR (1<<12) /**< Weapon blows up (armour spfx)
                                                    when timer is up. */
-#define OUTFIT_PROP_WEAP_BLOWUP_SHIELD (1<<3) /**< Weapon blows up (shield spfx)
+#define OUTFIT_PROP_WEAP_BLOWUP_SHIELD (1<<13) /**< Weapon blows up (shield spfx)
                                                    when timer is up. */
+
+/* Outfit filter labels. [Doc comments are also translator notes and must precede the #define.] */
+/** Color-coded abbreviation for "Weapon [outfit]", short enough to use as a tab/column title. */
+#define OUTFIT_LABEL_WEAPON            N_("\ab W ")
+/** Color-coded abbreviation for "Utility [outfit]", short enough to use as a tab/column title. */
+#define OUTFIT_LABEL_UTILITY           N_("\ag U ")
+/** Color-coded abbreviation for "Structure [outfit]", short enough to use as a tab/column title. */
+#define OUTFIT_LABEL_STRUCTURE         N_("\ap S ")
+/** Color-coded abbreviation for "Core [outfit]", short enough to use as a tab/column title. */
+#define OUTFIT_LABEL_CORE              N_("\aoCore")
 
 
 /*
@@ -51,7 +63,6 @@ typedef enum OutfitType_ {
    OUTFIT_TYPE_TURRET_LAUNCHER, /**< Turret launcher. */
    OUTFIT_TYPE_MODIFICATION, /**< Modifies the ship base features. */
    OUTFIT_TYPE_AFTERBURNER, /**< Gives the ship afterburn capability. */
-   OUTFIT_TYPE_JAMMER, /**< Used to nullify seeker missiles. */
    OUTFIT_TYPE_FIGHTER_BAY, /**< Contains other ships. */
    OUTFIT_TYPE_FIGHTER, /**< Ship contained in FIGHTER_BAY. */
    OUTFIT_TYPE_MAP, /**< Gives the player more knowledge about systems. */
@@ -89,7 +100,7 @@ typedef enum OutfitSlotSize_ {
  * @brief Ammo AI types.
  */
 typedef enum OutfitAmmoAI_ {
-   AMMO_AI_DUMB, /**< No AI. */
+   AMMO_AI_UNGUIDED, /**< No AI. */
    AMMO_AI_SEEK, /**< Aims at the target. */
    AMMO_AI_SMART /**< Aims at the target, correcting for relative velocity. */
 } OutfitAmmoAI;
@@ -140,6 +151,10 @@ typedef struct OutfitBoltData_ {
    int sound_hit;    /**< Sound to play on hit. */
    int spfx_armour;  /**< special effect on hit. */
    int spfx_shield;  /**< special effect on hit. */
+
+   /* collision polygon */
+   CollPoly *polygon; /**< Collision polygons. */
+   int npolygon; /**< Number of collision polygons. */
 } OutfitBoltData;
 
 /**
@@ -179,8 +194,9 @@ typedef struct OutfitLauncherData_ {
    char *ammo_name;  /**< Name of the ammo to use. */
    struct Outfit_ *ammo; /**< Ammo to use. */
    int amount;       /**< Amount of ammo it can store. */
+   double reload_time; /**< Time it takes to reload 1 ammo. */
 
-   /* Lockon information. */
+   /* Lock-on information. */
    double lockon;    /**< Time it takes to lock on the target */
    double ew_target; /**< Target ewarfare at which it the lockon time is based off of. */
    double ew_target2; /**< Target ewarfare squared for quicker comparisons. */
@@ -207,6 +223,10 @@ typedef struct OutfitAmmoData_ {
    int sound_hit;    /**< Sound to play on hit. */
    int spfx_armour;  /**< special effect on hit */
    int spfx_shield;  /**< special effect on hit */
+
+   /* collision polygon */
+   CollPoly *polygon; /**< Collision polygons. */
+   int npolygon; /**< Number of collision polygons. */
 } OutfitAmmoData;
 
 /**
@@ -245,10 +265,7 @@ typedef struct OutfitModificationData_ {
    double cargo;     /**< Cargo space modifier. */
    double crew_rel;  /**< Relative crew modification. */
    double mass_rel;  /**< Relative mass modification. */
-   double fuel;      /**< Maximum fuel modifier. */
-
-   /* Stats. */
-   ShipStatList *stats; /**< Stat list. */
+   int fuel;      /**< Maximum fuel modifier. */
 } OutfitModificationData;
 
 /**
@@ -301,16 +318,6 @@ typedef struct OutfitLocalMapData_ {
 } OutfitLocalMapData;
 
 /**
- * @brief Represents a jammer.
- */
-typedef struct OutfitJammerData_ {
-   double energy;    /**< Energy it uses to run */
-   double range;     /**< Range it starts to do effect */
-   double range2;    /**< Range squared. */
-   double power;     /**< Strength of the effect. */
-} OutfitJammerData;
-
-/**
  * @brief Represents a GUI.
  */
 typedef struct OutfitGUIData_ {
@@ -323,25 +330,30 @@ typedef struct OutfitGUIData_ {
 typedef struct Outfit_ {
    char *name;       /**< Name of the outfit. */
    char *typename;   /**< Overrides the base type. */
+   int rarity;       /**< Rarity of the outfit. */
 
-   /* general specs */
+   /* General specs */
    OutfitSlot slot;  /**< Slot the outfit fits into. */
    char *license;    /**< Licenses needed to buy it. */
    double mass;      /**< How much weapon capacity is needed. */
    double cpu;       /**< CPU usage. */
    char *limit;      /**< Name to limit to one per ship (ignored if NULL). */
 
-   /* store stuff */
+   /* Store stuff */
    credits_t price;  /**< Base sell price. */
    char *description; /**< Store description. */
    char *desc_short; /**< Short outfit description. */
    int priority;     /**< Sort priority, highest first. */
 
    glTexture* gfx_store; /**< Store graphic. */
+   glTexture** gfx_overlays; /**< Store overlay graphics. */
+   int gfx_noverlays; /**< Number of overlays. */
 
    unsigned int properties; /**< Properties stored bitwise. */
-
    unsigned int group; /**< Weapon group to use when autoweap is enabled. */
+
+   /* Stats. */
+   ShipStatList *stats; /**< Stat list. */
 
    /* Type dependent */
    OutfitType type; /**< Type of the outfit. */
@@ -352,7 +364,6 @@ typedef struct Outfit_ {
       OutfitAmmoData amm;         /**< AMMO */
       OutfitModificationData mod; /**< MODIFICATION */
       OutfitAfterburnerData afb;  /**< AFTERBURNER */
-      OutfitJammerData jam;       /**< JAMMER */
       OutfitFighterBayData bay;   /**< FIGHTER_BAY */
       OutfitFighterData fig;      /**< FIGHTER */
       OutfitMapData_t *map;       /**< MAP */
@@ -380,7 +391,6 @@ int outfit_isSeeker( const Outfit* o );
 int outfit_isTurret( const Outfit* o );
 int outfit_isMod( const Outfit* o );
 int outfit_isAfterburner( const Outfit* o );
-int outfit_isJammer( const Outfit* o );
 int outfit_isFighterBay( const Outfit* o );
 int outfit_isFighter( const Outfit* o );
 int outfit_isMap( const Outfit* o );
@@ -399,6 +409,15 @@ const char *outfit_existsCase( const char* name );
 char **outfit_searchFuzzyCase( const char* name, int *n );
 
 /*
+ * Filter.
+ */
+int outfit_filterWeapon( const Outfit *o );
+int outfit_filterUtility( const Outfit *o );
+int outfit_filterStructure( const Outfit *o );
+int outfit_filterCore( const Outfit *o );
+int outfit_filterOther( const Outfit *o );
+
+/*
  * get data from outfit
  */
 const char *outfit_slotName( const Outfit* o );
@@ -407,6 +426,7 @@ const char *slotSize( const OutfitSlotSize o );
 const glColour *outfit_slotSizeColour( const OutfitSlot* os );
 OutfitSlotSize outfit_toSlotSize( const char *s );
 glTexture* outfit_gfx( const Outfit* o );
+CollPoly* outfit_plg( const Outfit* o );
 int outfit_spfxArmour( const Outfit* o );
 int outfit_spfxShield( const Outfit* o );
 const Damage *outfit_damage( const Outfit* o );
@@ -438,6 +458,7 @@ void outfit_free (void);
 int outfit_fitsSlot( const Outfit* o, const OutfitSlot* s );
 int outfit_fitsSlotType( const Outfit* o, const OutfitSlot* s );
 void outfit_freeSlot( OutfitSlot* s );
+glTexture* rarity_texture( int rarity );
 
 
 #endif /* OUTFIT_H */

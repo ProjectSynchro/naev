@@ -8,24 +8,26 @@
  * @brief Handles the planet stuff.
  */
 
-#include "dev_planet.h"
-#include "dev_uniedit.h"
+
+/** @cond */
+#include <stdlib.h>
 
 #include "naev.h"
+/** @endcond */
 
-#include <stdlib.h> /* qsort */
+#include "dev_planet.h"
 
 #include "conf.h"
-#include "nxml.h"
-#include "physics.h"
+#include "dev_uniedit.h"
 #include "nfile.h"
 #include "nstring.h"
+#include "nxml.h"
+#include "physics.h"
 
 
 /**
  * @brief Saves a planet.
  *
- *    @param writer Write to use for saving the star planet.
  *    @param p Planet to save.
  *    @return 0 on success.
  */
@@ -39,7 +41,7 @@ int dpl_savePlanet( const Planet *p )
    /* Create the writer. */
    writer = xmlNewTextWriterDoc(&doc, 0);
    if (writer == NULL) {
-      WARN("testXmlwriterDoc: Error creating the xml writer");
+      WARN(_("testXmlwriterDoc: Error creating the xml writer"));
       return -1;
    }
 
@@ -107,15 +109,18 @@ int dpl_savePlanet( const Planet *p )
          xmlw_elemEmpty( writer, "outfits" );
       if (planet_hasService( p, PLANET_SERVICE_SHIPYARD ))
          xmlw_elemEmpty( writer, "shipyard" );
+      if (planet_hasService( p, PLANET_SERVICE_BLACKMARKET ))
+         xmlw_elemEmpty( writer, "blackmarket" );
       xmlw_endElem( writer ); /* "services" */
       if (planet_hasService( p, PLANET_SERVICE_LAND )) {
-         xmlw_startElem( writer, "commodities" );
-         for (i=0; i<p->ncommodities; i++)
-            xmlw_elem( writer, "commodity", "%s", p->commodities[i]->name );
-         xmlw_endElem( writer ); /* "commodities" */
-
-         if (planet_isBlackMarket(p))
-            xmlw_elemEmpty( writer, "blackmarket" );
+         if (p->faction > 0) {
+            xmlw_startElem( writer, "commodities" );
+            for (i=0; i<p->ncommodities; i++) {
+               if (p->commodities[i]->standard == 0)
+                  xmlw_elem( writer, "commodity", "%s", p->commodities[i]->name );
+            }
+            xmlw_endElem( writer ); /* "commodities" */
+         }
 
          xmlw_elem( writer, "description", "%s", p->description );
          if (planet_hasService( p, PLANET_SERVICE_BAR ))

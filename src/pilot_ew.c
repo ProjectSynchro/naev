@@ -10,15 +10,17 @@
  */
 
 
-#include "pilot.h"
 
-#include "naev.h"
-
+/** @cond */
 #include <math.h>
 
+#include "naev.h"
+/** @endcond */
+
 #include "log.h"
-#include "space.h"
+#include "pilot.h"
 #include "player.h"
+#include "space.h"
 
 static double sensor_curRange    = 0.; /**< Current base sensor range, used to calculate
                                          what is in range and what isn't. */
@@ -39,7 +41,8 @@ void pilot_ewUpdateStatic( Pilot *p )
     */
    p->ew_mass     = pow2( pilot_ewMass( p->solid->mass ) );
    p->ew_heat     = pilot_ewHeat( p->heat_T );
-   p->ew_hide     = p->ew_base_hide * p->ew_mass * p->ew_heat;
+   p->ew_asteroid = pilot_ewAsteroid( p );
+   p->ew_hide     = p->ew_base_hide * p->ew_mass * p->ew_heat * p->ew_asteroid;
    p->ew_evasion  = p->ew_hide * EVASION_SCALE;
 }
 
@@ -53,7 +56,8 @@ void pilot_ewUpdateDynamic( Pilot *p )
 {
    /* Update hide. */
    p->ew_heat     = pilot_ewHeat( p->heat_T );
-   p->ew_hide     = p->ew_base_hide * p->ew_mass * p->ew_heat;
+   p->ew_asteroid = pilot_ewAsteroid( p );
+   p->ew_hide     = p->ew_base_hide * p->ew_mass * p->ew_heat * p->ew_asteroid;
 
    /* Update evasion. */
    p->ew_movement = pilot_ewMovement( VMOD(p->solid->vel) );
@@ -94,6 +98,24 @@ double pilot_ewHeat( double T )
 double pilot_ewMass( double mass )
 {
    return 1. / (.3 + sqrt(mass) / 30. );
+}
+
+
+/**
+ * @brief Gets the electronic warfare asteroid modifier.
+ *
+ *    @param p Pilot.
+ *    @return The electronic warfare asteroid modifier.
+ */
+double pilot_ewAsteroid( Pilot *p )
+{
+   int i;
+
+   i = space_isInField(&p->solid->pos);
+   if ( i>=0 )
+      return 1. + cur_system->asteroids[i].density;
+   else
+      return 1.;
 }
 
 
@@ -151,11 +173,18 @@ int pilot_inRange( const Pilot *p, double x, double y )
  *
  *    @param p Pilot who is trying to check to see if other is in sensor range.
  *    @param target Target of p to check to see if is in sensor range.
+ *    @param[out] dist2 Distance squared of the two pilots. Set to NULL if you're not interested.
  *    @return 1 if they are in range, 0 if they aren't and -1 if they are detected fuzzily.
  */
-int pilot_inRangePilot( const Pilot *p, const Pilot *target )
+int pilot_inRangePilot( const Pilot *p, const Pilot *target, double *dist2)
 {
    double d, sense;
+
+   /* Get distance if needed. */
+   if (dist2 != NULL) {
+      d = vect_dist2( &p->solid->pos, &target->solid->pos );
+      *dist2 = d;
+   }
 
    /* Special case player or omni-visible. */
    if ((pilot_isPlayer(p) && pilot_isFlag(target, PILOT_VISPLAYER)) ||
@@ -163,8 +192,9 @@ int pilot_inRangePilot( const Pilot *p, const Pilot *target )
          target->parent == p->id)
       return 1;
 
-   /* Get distance. */
-   d = vect_dist2( &p->solid->pos, &target->solid->pos );
+   /* Get distance if still needed */
+   if (dist2 == NULL)
+      d = vect_dist2( &p->solid->pos, &target->solid->pos );
 
    sense = sensor_curRange * p->ew_detect;
    if (d * target->ew_evasion < sense)
@@ -211,11 +241,47 @@ int pilot_inRangePlanet( const Pilot *p, int target )
    return 0;
 }
 
+
+/**
+ * @brief Check to see if an asteroid is in sensor range of the pilot.
+ *
+ *    @param p Pilot who is trying to check to see if the asteroid is in sensor range.
+ *    @param ast Asteroid to see if is in sensor range.
+ *    @param fie Field the Asteroid belongs to to see if is in sensor range.
+ *    @return 1 if they are in range, 0 if they aren't.
+ */
+int pilot_inRangeAsteroid( const Pilot *p, int ast, int fie )
+{
+   double d;
+   Asteroid *as;
+   AsteroidAnchor *f;
+   double sense;
+
+   /* pilot must exist */
+   if ( p == NULL )
+      return 0;
+
+   /* Get the asteroid. */
+   f = &cur_system->asteroids[fie];
+   as = &f->asteroids[ast];
+
+   sense = sensor_curRange * p->ew_detect;
+
+   /* Get distance. */
+   d = vect_dist2( &p->solid->pos, &as->pos );
+
+   if (d < sense ) /* By default, asteroid's hide score is 1. It could be made changeable via xml.*/
+      return 1;
+
+   return 0;
+}
+
+
 /**
  * @brief Check to see if a jump point is in sensor range of the pilot.
  *
  *    @param p Pilot who is trying to check to see if the jump point is in sensor range.
- *    @param target Jump point to see if is in sensor range.
+ *    @param i target Jump point to see if is in sensor range.
  *    @return 1 if they are in range, 0 if they aren't.
  */
 int pilot_inRangeJump( const Pilot *p, int i )
@@ -265,7 +331,10 @@ double pilot_ewWeaponTrack( const Pilot *p, const Pilot *t, double track )
 {
    double limit, lead;
 
-   limit = track * p->ew_detect;
+   limit = track;
+   if (p != NULL)
+      limit *= p->ew_detect;
+
    if (t->ew_evasion * t->ew_movement < limit)
       lead = 1.;
    else

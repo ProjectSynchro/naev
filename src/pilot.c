@@ -10,41 +10,44 @@
  */
 
 
-#include "pilot.h"
-
-#include "naev.h"
-
+/** @cond */
+#include <limits.h>
 #include <math.h>
 #include <stdlib.h>
-#include <limits.h>
 
-#include "nxml.h"
-#include "nstring.h"
-#include "log.h"
-#include "weapon.h"
-#include "ndata.h"
-#include "spfx.h"
-#include "rng.h"
-#include "hook.h"
-#include "map.h"
-#include "explosion.h"
-#include "escort.h"
-#include "music.h"
-#include "player.h"
-#include "gui.h"
-#include "board.h"
-#include "debris.h"
-#include "ntime.h"
+#include "naev.h"
+/** @endcond */
+
+#include "pilot.h"
+
 #include "ai.h"
+#include "array.h"
+#include "board.h"
+#include "camera.h"
+#include "damagetype.h"
+#include "debris.h"
+#include "escort.h"
+#include "explosion.h"
 #include "faction.h"
 #include "font.h"
+#include "gui.h"
+#include "hook.h"
 #include "land.h"
 #include "land_outfits.h"
 #include "land_shipyard.h"
-#include "array.h"
-#include "camera.h"
-#include "damagetype.h"
+#include "log.h"
+#include "map.h"
+#include "music.h"
+#include "ndata.h"
+#include "nstring.h"
+#include "ntime.h"
+#include "nxml.h"
 #include "pause.h"
+#include "player.h"
+#include "player_autonav.h"
+#include "rng.h"
+#include "spfx.h"
+#include "weapon.h"
 
 
 #define PILOT_CHUNK_MIN 128 /**< Minimum chunks to increment pilot_stack by */
@@ -56,14 +59,15 @@ static unsigned int pilot_id = PLAYER_ID; /**< Stack of pilot ids to assure uniq
 
 
 /* stack of pilot_nstack */
+/* TODO replace with array.h infrastructure and make non-public. */
 Pilot** pilot_stack = NULL; /**< Not static, used in player.c, weapon.c, pause.c, space.c and ai.c */
 int pilot_nstack = 0; /**< same */
 static int pilot_mstack = 0; /**< Memory allocated for pilot_stack. */
 
 
 /* misc */
-static double pilot_commTimeout  = 15.; /**< Time for text above pilot to time out. */
-static double pilot_commFade     = 5.; /**< Time for text above pilot to fade out. */
+static const double pilot_commTimeout  = 15.; /**< Time for text above pilot to time out. */
+static const double pilot_commFade     = 5.; /**< Time for text above pilot to fade out. */
 
 
 
@@ -75,7 +79,7 @@ static void pilot_hyperspace( Pilot* pilot, double dt );
 static void pilot_refuel( Pilot *p, double dt );
 /* Clean up. */
 static void pilot_dead( Pilot* p, unsigned int killer );
-/* Targetting. */
+/* Targeting. */
 static int pilot_validEnemy( const Pilot* p, const Pilot* target );
 /* Misc. */
 static void pilot_setCommMsg( Pilot *p, const char *s );
@@ -93,6 +97,14 @@ Pilot** pilot_getAll( int *n )
 
 
 /**
+ * @brief Compare id (for use with bsearch)
+ */
+static int compid(const void *id, const void *p) {
+    return *((const unsigned int*)id) - (*((Pilot**)p))->id;
+}
+
+
+/**
  * @brief Gets the pilot's position in the stack.
  *
  *    @param id ID of the pilot to get.
@@ -101,18 +113,11 @@ Pilot** pilot_getAll( int *n )
 static int pilot_getStackPos( const unsigned int id )
 {
    /* binary search */
-   int l,m,h;
-   l = 0;
-   h = pilot_nstack-1;
-   while (l <= h) {
-      m = (l+h) >> 1; /* for impossible overflow returning neg value */
-      if (pilot_stack[m]->id > id) h = m-1;
-      else if (pilot_stack[m]->id < id) l = m+1;
-      else return m;
-   }
-
-   /* Not found. */
-   return -1;
+   Pilot **pp = bsearch(&id, pilot_stack, pilot_nstack, sizeof(Pilot*), compid);
+   if (pp == NULL)
+      return -1;
+   else
+      return pp - pilot_stack;
 }
 
 
@@ -145,7 +150,7 @@ unsigned int pilot_getNextID( const unsigned int id, int mode )
          if (((pilot_stack[p]->faction != FACTION_PLAYER) ||
                   pilot_isDisabled(pilot_stack[p])) &&
                !pilot_isFlag( pilot_stack[p], PILOT_INVISIBLE ) &&
-               pilot_inRangePilot( player.p, pilot_stack[p] ))
+               pilot_inRangePilot( player.p, pilot_stack[p], NULL ))
             return pilot_stack[p]->id;
          p++;
       }
@@ -153,11 +158,10 @@ unsigned int pilot_getNextID( const unsigned int id, int mode )
    /* Get first hostile in range. */
    if (mode == 1) {
       while (p < pilot_nstack) {
-         if ((pilot_stack[p]->faction != FACTION_PLAYER) &&
+         if ( ( pilot_stack[p]->faction != FACTION_PLAYER ) &&
                !pilot_isFlag( pilot_stack[p], PILOT_INVISIBLE ) &&
-               pilot_inRangePilot( player.p, pilot_stack[p] ) &&
-               (pilot_isFlag(pilot_stack[p],PILOT_HOSTILE) ||
-                  areEnemies( FACTION_PLAYER, pilot_stack[p]->faction)))
+               pilot_inRangePilot( player.p, pilot_stack[p], NULL ) == 1 &&
+               pilot_isHostile( pilot_stack[p] ) )
             return pilot_stack[p]->id;
          p++;
       }
@@ -172,6 +176,7 @@ unsigned int pilot_getNextID( const unsigned int id, int mode )
  * @brief Gets the previous pilot based on ID.
  *
  *    @param id ID of the current pilot.
+ *    @param mode Method to use when cycling.  0 is normal, 1 is hostiles.
  *    @return ID of previous pilot or PLAYER_ID if no previous pilot.
  */
 unsigned int pilot_getPrevID( const unsigned int id, int mode )
@@ -199,7 +204,7 @@ unsigned int pilot_getPrevID( const unsigned int id, int mode )
          if (((pilot_stack[p]->faction != FACTION_PLAYER) ||
                   (pilot_isDisabled(pilot_stack[p]))) &&
                !pilot_isFlag( pilot_stack[p], PILOT_INVISIBLE ) &&
-               pilot_inRangePilot( player.p, pilot_stack[p] ))
+               pilot_inRangePilot( player.p, pilot_stack[p], NULL ))
             return pilot_stack[p]->id;
          p--;
       }
@@ -207,11 +212,10 @@ unsigned int pilot_getPrevID( const unsigned int id, int mode )
    /* Get first hostile in range. */
    else if (mode == 1) {
       while (p >= 0) {
-         if ((pilot_stack[p]->faction != FACTION_PLAYER) &&
+         if ( ( pilot_stack[p]->faction != FACTION_PLAYER ) &&
                !pilot_isFlag( pilot_stack[p], PILOT_INVISIBLE ) &&
-               pilot_inRangePilot( player.p, pilot_stack[p] ) &&
-               (pilot_isFlag(pilot_stack[p],PILOT_HOSTILE) ||
-                  areEnemies( FACTION_PLAYER, pilot_stack[p]->faction)))
+               pilot_inRangePilot( player.p, pilot_stack[p], NULL ) == 1 &&
+               pilot_isHostile( pilot_stack[p] ) )
             return pilot_stack[p]->id;
          p--;
       }
@@ -241,7 +245,7 @@ int pilot_validTarget( const Pilot* p, const Pilot* target )
       return 0;
 
    /* Must be in range. */
-   if (!pilot_inRangePilot( p, target ))
+   if (!pilot_inRangePilot( p, target, NULL ))
       return 0;
 
    /* Pilot is a valid target. */
@@ -258,22 +262,26 @@ int pilot_validTarget( const Pilot* p, const Pilot* target )
  */
 static int pilot_validEnemy( const Pilot* p, const Pilot* target )
 {
-   /* Must not be bribed. */
-   if ((target->faction == FACTION_PLAYER) && pilot_isFlag(p,PILOT_BRIBED))
-      return 0;
-
    /* Should either be hostile by faction or by player. */
-   if (!(areEnemies( p->faction, target->faction) ||
-            ((target->id == PLAYER_ID) &&
-             pilot_isFlag(p,PILOT_HOSTILE))))
+   if ( !( areEnemies( p->faction, target->faction )
+            || ( ( target->id == PLAYER_ID )
+               && pilot_isHostile( p ) ) ) )
       return 0;
 
    /* Shouldn't be disabled. */
    if (pilot_isDisabled(target))
       return 0;
 
+   /* Shouldn't be invincible. */
+   if (pilot_isFlag( target, PILOT_INVINCIBLE ))
+      return 0;
+
    /* Must be a valid target. */
    if (!pilot_validTarget( p, target ))
+      return 0;
+
+   /* Must not be fuzzy. */
+   if (pilot_inRangePilot( p, target, NULL ) != 1)
       return 0;
 
    /* He's ok. */
@@ -351,7 +359,7 @@ unsigned int pilot_getNearestEnemy_size( const Pilot* p, double target_mass_LB, 
  *    @param p Pilot to get the nearest enemy of.
  *    @param mass_factor parameter for target mass (0-1, 0.5 = current mass)
  *    @param health_factor parameter for target shields/armour (0-1, 0.5 = current health)
- *    @param dps_factor parameter for target dps (0-1, 0.5 = current dps)
+ *    @param damage_factor parameter for target dps (0-1, 0.5 = current dps)
  *    @param range_factor weighting for range (typically >> 1)
  *    @return ID of their nearest enemy.
  */
@@ -376,9 +384,9 @@ unsigned int pilot_getNearestEnemy_heuristic( const Pilot* p,
       /* Check distance. */
       temp = range_factor *
                vect_dist2( &target->solid->pos, &p->solid->pos )
-            + fabs( pilot_relsize( p, target ) - mass_factor)
-            + fabs( pilot_relhp(   p, target ) - health_factor)
-            + fabs( pilot_reldps(  p, target ) - damage_factor);
+            + FABS( pilot_relsize( p, target ) - mass_factor)
+            + FABS( pilot_relhp(   p, target ) - health_factor)
+            + FABS( pilot_reldps(  p, target ) - damage_factor);
 
       if ((tp == 0) || (temp < current_heuristic_value)) {
          current_heuristic_value = temp;
@@ -402,6 +410,74 @@ unsigned int pilot_getNearestPilot( const Pilot* p )
    return t;
 }
 
+
+/**
+ * @brief Get the strongest ally in a given range.
+ *
+ *    @param p Pilot to get the boss of.
+ *    @return The boss.
+ */
+unsigned int pilot_getBoss( const Pilot* p )
+{
+   unsigned int t;
+   int i;
+   double td, dx, dy;
+   double relpower, ppower, curpower;
+   /* TODO : all the parameters should be adjustable with arguments */
+
+   relpower = 0;
+   t = 0;
+
+   /* Initialized to 0.25 which would mean equivalent power. */
+   ppower = 0.5*0.5;
+
+   for (i=0; i<pilot_nstack; i++) {
+
+      /* Must be in range. */
+      if (!pilot_inRangePilot( p, pilot_stack[i], NULL ))
+         continue;
+
+      /* Must not be self. */
+      if (pilot_stack[i] == p)
+         continue;
+
+      /* Shouldn't be disabled. */
+      if (pilot_isDisabled(pilot_stack[i]))
+         continue;
+
+      /* Must be a valid target. */
+      if (!pilot_validTarget( p, pilot_stack[i] ))
+         continue;
+
+      /* Maximum distance in 2 seconds. */
+      dx = pilot_stack[i]->solid->pos.x + 2*pilot_stack[i]->solid->vel.x -
+           p->solid->pos.x - 2*p->solid->vel.x;
+      dy = pilot_stack[i]->solid->pos.y + 2*pilot_stack[i]->solid->vel.y -
+           p->solid->pos.y - 2*p->solid->vel.y;
+      td = sqrt( pow2(dx) + pow2(dy) );
+      if (td > 5000)
+         continue;
+
+      /* Must have the same faction. */
+      if (pilot_stack[i]->faction != p->faction)
+         continue;
+
+      /* Must be slower. */
+      if (pilot_stack[i]->speed > p->speed)
+         continue;
+
+      /* Should not be weaker than the current pilot*/
+      curpower = pilot_reldps(  pilot_stack[i], p ) * pilot_relhp(  pilot_stack[i], p );
+      if (ppower >= curpower )
+         continue;
+
+      if (relpower < curpower ) {
+         relpower = curpower;
+         t = pilot_stack[i]->id;
+      }
+   }
+   return t;
+}
 
 /**
  * @brief Get the nearest pilot to a pilot from a certain position.
@@ -487,7 +563,7 @@ double pilot_getNearestAng( const Pilot *p, unsigned int *tp, double ang, int di
          continue;
 
       /* Must be in range. */
-      if (!pilot_inRangePilot( p, pilot_stack[i] ))
+      if (!pilot_inRangePilot( p, pilot_stack[i], NULL ))
          continue;
 
       /* Only allow selection if off-screen. */
@@ -557,11 +633,12 @@ void pilot_setTurn( Pilot *p, double turn )
  */
 int pilot_isHostile( const Pilot *p )
 {
-   if (pilot_isFlag(p, PILOT_FRIENDLY))
-      return 0;
-   if (pilot_isFlag(p, PILOT_HOSTILE) ||
-         areEnemies(FACTION_PLAYER,p->faction))
+   if ( !pilot_isFriendly( p )
+         && !pilot_isFlag( p, PILOT_BRIBED )
+         && (pilot_isFlag( p, PILOT_HOSTILE ) ||
+            areEnemies( FACTION_PLAYER, p->faction ) ) )
       return 1;
+
    return 0;
 }
 
@@ -588,12 +665,32 @@ int pilot_isNeutral( const Pilot *p )
  */
 int pilot_isFriendly( const Pilot *p )
 {
-   if (pilot_isFlag(p, PILOT_HOSTILE))
-      return 0;
-   if (pilot_isFlag(p, PILOT_FRIENDLY) ||
-         areAllies(FACTION_PLAYER,p->faction))
+   if ( pilot_isFlag( p, PILOT_FRIENDLY ) ||
+         areAllies( FACTION_PLAYER,p->faction ) )
       return 1;
+
    return 0;
+}
+
+
+/**
+ * @brief Gets the dock slot of the pilot.
+ *
+ *    @param p Pilot to get dock slot of.
+ *    @return The dock slot as an outfit slot, or NULL if N/A.
+ */
+PilotOutfitSlot* pilot_getDockSlot( Pilot* p )
+{
+   Pilot* dockpilot;
+
+   if ((p->dockpilot != 0) && (p->dockslot != -1)) {
+      dockpilot = pilot_get(p->dockpilot);
+      if (dockpilot != NULL)
+         return dockpilot->outfits[p->dockslot];
+   }
+   p->dockpilot = 0;
+   p->dockslot = -1;
+   return NULL;
 }
 
 
@@ -622,7 +719,7 @@ double pilot_face( Pilot* p, const double dir )
 /**
  * @brief Causes the pilot to turn around and brake.
  *
- *    @param Pilot to brake.
+ *    @param p Pilot to brake.
  *    @return 1 when braking has finished.
  */
 int pilot_brake( Pilot *p )
@@ -773,7 +870,7 @@ int pilot_interceptPos( Pilot *p, double x, double y )
 /**
  * @brief Begins active cooldown, reducing hull and outfit temperatures.
  *
- *    @param Pilot that should cool down.
+ *    @param p Pilot that should cool down.
  */
 void pilot_cooldown( Pilot *p )
 {
@@ -793,7 +890,7 @@ void pilot_cooldown( Pilot *p )
    }
 
    if (p->id == PLAYER_ID)
-      player_message("\epActive cooldown engaged.");
+      player_message(_("\aoActive cooldown engaged."));
 
    /* Disable active outfits. */
    if (pilot_outfitOffAll( p ) > 0)
@@ -835,8 +932,8 @@ void pilot_cooldown( Pilot *p )
 /**
  * @brief Terminates active cooldown.
  *
- *    @param Pilot to stop cooling.
- *    @param Reason for the termination.
+ *    @param p Pilot to stop cooling.
+ *    @param reason Reason for the termination.
  */
 void pilot_cooldownEnd( Pilot *p, const char *reason )
 {
@@ -848,12 +945,12 @@ void pilot_cooldownEnd( Pilot *p, const char *reason )
    /* Send message to player. */
    if (p->id == PLAYER_ID) {
       if (p->ctimer < 0.)
-         player_message("\epActive cooldown completed.");
+         player_message(_("\aoActive cooldown completed."));
       else {
          if (reason != NULL)
-            player_message("\erActive cooldown aborted: %s!", reason);
+            player_message(_("\arActive cooldown aborted: %s!"), reason);
          else
-            player_message("\erActive cooldown aborted!");
+            player_message(_("\arActive cooldown aborted!"));
       }
    }
 
@@ -861,9 +958,82 @@ void pilot_cooldownEnd( Pilot *p, const char *reason )
 
    /* Cooldown finished naturally, reset heat just in case. */
    if (p->ctimer < 0.)
+   {
       pilot_heatReset( p );
+      pilot_fillAmmo( p );
+   }
 }
 
+
+/**
+ * @brief Returns the angle for a pilot to aim at an other pilot
+ *
+ *    @param p Pilot that aims.
+ *    @param target Pilot that is being aimed at.
+ */
+double pilot_aimAngle( Pilot *p, Pilot *target )
+{
+   double x,y;
+   double t;
+   Vector2d tv, approach_vector, relative_location, orthoradial_vector;
+   double dist;
+   double speed;
+   double radial_speed;
+   double orthoradial_speed;
+
+   /* Get the distance */
+   dist = vect_dist( &p->solid->pos, &target->solid->pos );
+
+   /* Check if should recalculate weapon speed with secondary weapon. */
+   speed = pilot_weapSetSpeed( p, p->active_set, -1 );
+
+   /* determine the radial, or approach speed */
+   /*
+    *approach_vector (denote Va) is the relative velocites of the pilot and target
+    *relative_location (denote Vr) is the vector that points from the target to the pilot
+    *
+    *Va dot Vr is the rate of approach between the target and the pilot.
+    *If this is greater than 0, the target is approaching the pilot, if less than 0, the target is fleeing.
+    *
+    *Va dot Vr + ShotSpeed is the net closing velocity for the shot, and is used to compute the time of flight for the shot.
+    */
+   vect_cset(&approach_vector, VX(p->solid->vel) - VX(target->solid->vel), VY(p->solid->vel) - VY(target->solid->vel) );
+   vect_cset(&relative_location, VX(target->solid->pos) -  VX(p->solid->pos),  VY(target->solid->pos) - VY(p->solid->pos) );
+   vect_cset(&orthoradial_vector, VY(p->solid->pos) - VY(target->solid->pos), VX(target->solid->pos) -  VX(p->solid->pos) );
+
+   radial_speed = vect_dot(&approach_vector, &relative_location);
+   radial_speed = radial_speed / VMOD(relative_location);
+
+   orthoradial_speed = vect_dot(&approach_vector, &orthoradial_vector);
+   orthoradial_speed = orthoradial_speed / VMOD(relative_location);
+
+   /* Time for shots to reach that distance */
+   /* t is the real positive solution of a 2nd order equation*/
+   /* if the target is not hittable (i.e., fleeing faster than our shots can fly, determinant <= 0), just face the target */
+   if ( ((speed*speed - VMOD(approach_vector)*VMOD(approach_vector)) != 0) && (speed*speed - orthoradial_speed*orthoradial_speed) > 0)
+      t = dist * (sqrt( speed*speed - orthoradial_speed*orthoradial_speed ) - radial_speed) /
+            (speed*speed - VMOD(approach_vector)*VMOD(approach_vector));
+   else
+      t = 0;
+
+   /* if t < 0, try the other solution*/
+   if (t < 0)
+      t = - dist * (sqrt( speed*speed - orthoradial_speed*orthoradial_speed ) + radial_speed) /
+            (speed*speed - VMOD(approach_vector)*VMOD(approach_vector));
+
+   /* if t still < 0, no solution*/
+   if (t < 0)
+      t = 0;
+
+   /* Position is calculated on where it should be */
+   x = target->solid->pos.x + target->solid->vel.x*t
+      - (p->solid->pos.x + p->solid->vel.x*t);
+   y = target->solid->pos.y + target->solid->vel.y*t
+      - (p->solid->pos.y + p->solid->vel.y*t);
+   vect_cset( &tv, x, y );
+
+   return VANGLE(tv);
+}
 
 /**
  * @brief Marks pilot as hostile to player.
@@ -872,14 +1042,16 @@ void pilot_cooldownEnd( Pilot *p, const char *reason )
  */
 void pilot_setHostile( Pilot* p )
 {
-   if (!pilot_isFlag(p, PILOT_HOSTILE)) {
+   if ( pilot_isFriendly( p ) || pilot_isFlag( p, PILOT_BRIBED)
+         || !pilot_isFlag( p, PILOT_HOSTILE ) ) {
       /* Time to play combat music. */
-      if (player.enemies == 0)
-         music_choose("combat");
+      music_choose("combat");
 
       player.enemies++;
-      pilot_setFlag(p, PILOT_HOSTILE);
+      pilot_setFlag( p, PILOT_HOSTILE );
    }
+   pilot_rmFriendly( p );
+   pilot_rmFlag( p, PILOT_BRIBED );
 }
 
 
@@ -892,9 +1064,9 @@ char pilot_getFactionColourChar( const Pilot *p )
 {
    if (pilot_isDisabled(p))
       return 'I';
-   else if (pilot_isFlag(p, PILOT_BRIBED))
+   else if (pilot_isFriendly(p))
       return 'N';
-   else if (pilot_isFlag(p, PILOT_HOSTILE))
+   else if (pilot_isHostile(p))
       return 'H';
    return faction_getColourChar(p->faction);
 }
@@ -905,12 +1077,8 @@ char pilot_getFactionColourChar( const Pilot *p )
  */
 static void pilot_setCommMsg( Pilot *p, const char *s )
 {
-   /* Free previous message. */
-   if (p->comm_msg != NULL)
-      free(p->comm_msg);
-
-   /* Duplicate the message. */
-   p->comm_msg       = strdup(s);
+   free( p->comm_msg );
+   p->comm_msg       = strdup( s );
    p->comm_msgWidth  = gl_printWidthRaw( NULL, s );
    p->comm_msgTimer  = pilot_commTimeout;
 }
@@ -939,13 +1107,13 @@ void pilot_message( Pilot *p, unsigned int target, const char *msg, int ignore_i
       return;
 
    /* Must be in range. */
-   if (!ignore_int && !pilot_inRangePilot( player.p, p ))
+   if (!ignore_int && !pilot_inRangePilot( player.p, p, NULL ))
       return;
 
    /* Only really affects player.p atm. */
    if (target == PLAYER_ID) {
       c = pilot_getFactionColourChar( p );
-      player_message( "\e%cComm %s>\e0 \"%s\"", c, p->name, msg );
+      player_message( _("\a%cComm %s>\a0 \"%s\""), c, p->name, msg );
 
       /* Set comm message. */
       pilot_setCommMsg( p, msg );
@@ -969,11 +1137,11 @@ void pilot_broadcast( Pilot *p, const char *msg, int ignore_int )
       return;
 
    /* Check if should ignore interference. */
-   if (!ignore_int && !pilot_inRangePilot( player.p, p ))
+   if (!ignore_int && !pilot_inRangePilot( player.p, p, NULL ))
       return;
 
    c = pilot_getFactionColourChar( p );
-   player_message( "\e%cBroadcast %s>\e0 \"%s\"", c, p->name, msg );
+   player_message( _("\a%cBroadcast %s>\a0 \"%s\""), c, p->name, msg );
 
    /* Set comm message. */
    pilot_setCommMsg( p, msg );
@@ -1030,7 +1198,7 @@ void pilot_distress( Pilot *p, Pilot *attacker, const char *msg, int ignore_int 
          continue;
 
       if (!ignore_int) {
-         if (!pilot_inRangePilot(p, pilot_stack[i])) {
+         if (!pilot_inRangePilot(p, pilot_stack[i], NULL)) {
             /*
              * If the pilots are within sensor range of each other, send the
              * distress signal, regardless of electronic warfare hide values.
@@ -1070,16 +1238,23 @@ void pilot_distress( Pilot *p, Pilot *attacker, const char *msg, int ignore_int 
  */
 void pilot_rmHostile( Pilot* p )
 {
-   if (pilot_isFlag(p, PILOT_HOSTILE)) {
-      if (!pilot_isDisabled(p))
+   if (pilot_isHostile(p)) {
+      if (pilot_isFlag(p, PILOT_HOSTILE)) {
          player.enemies--;
-      pilot_rmFlag(p, PILOT_HOSTILE);
+         if (pilot_isDisabled(p))
+            player.disabled_enemies--;
 
-      /* Change music back to ambient if no more enemies. */
-      if (player.enemies <= 0) {
-         music_choose("ambient");
-         player.enemies = 0;
+         /* Change music back to ambient if no more enemies. */
+         if (player.enemies <= player.disabled_enemies) {
+            music_choose("ambient");
+         }
+
+         pilot_rmFlag(p, PILOT_HOSTILE);
       }
+
+      /* Set "bribed" flag if faction has poor reputation */
+      if ( areEnemies( FACTION_PLAYER, p->faction ) )
+         pilot_setFlag(p, PILOT_BRIBED);
    }
 }
 
@@ -1115,7 +1290,7 @@ void pilot_rmFriendly( Pilot* p )
  */
 int pilot_getJumps( const Pilot* p )
 {
-   return (int)floor(p->fuel / p->fuel_consumption);
+   return p->fuel / p->fuel_consumption;
 }
 
 
@@ -1129,12 +1304,11 @@ const glColour* pilot_getColour( const Pilot* p )
 {
    const glColour *col;
 
-   if (pilot_inRangePilot(player.p, p) == -1) col = &cMapNeutral;
+   if (pilot_inRangePilot(player.p, p, NULL) == -1) col = &cNeutral;
    else if (pilot_isDisabled(p) || pilot_isFlag(p,PILOT_DEAD)) col = &cInert;
-   else if (pilot_isFlag(p,PILOT_BRIBED)) col = &cNeutral;
-   else if (pilot_isHostile(p)) col = &cHostile;
    else if (pilot_isFriendly(p)) col = &cFriend;
-   else col = faction_getColour(p->faction);
+   else if (pilot_isHostile(p)) col = &cHostile;
+   else col = &cNeutral;
 
    return col;
 }
@@ -1272,12 +1446,14 @@ double pilot_hit( Pilot* p, const Solid* w, const unsigned int shooter,
    if (p->stress > p->armour)
       p->stress = p->armour;
 
+   /* Do not let pilot die. */
+   if ((p->armour <= 0.) && pilot_isFlag( p, PILOT_NODEATH )) {
+      p->armour = 1.;
+      p->stress = 1.;
+   }
+
    /* Disabled always run before dead to ensure combat rating boost. */
    pilot_updateDisable(p, shooter);
-
-   /* Do not let pilot die. */
-   if (pilot_isFlag( p, PILOT_NODEATH ))
-      p->armour = 1.;
 
    /* Officially dead. */
    if (p->armour <= 0.) {
@@ -1329,7 +1505,7 @@ double pilot_hit( Pilot* p, const Solid* w, const unsigned int shooter,
  */
 void pilot_updateDisable( Pilot* p, const unsigned int shooter )
 {
-   int mod, h;
+   int mod;
    Pilot *pshooter;
    HookParam hparam;
 
@@ -1351,12 +1527,9 @@ void pilot_updateDisable( Pilot* p, const unsigned int shooter )
       pilot_rmFlag(p, PILOT_HYP_BRAKE);
       pilot_rmFlag(p, PILOT_HYPERSPACE);
 
-      /* If hostile, must remove counter. */
-      h = (pilot_isHostile(p)) ? 1 : 0;
-      pilot_rmHostile(p);
-      if (h == 1) /* Horrible hack to make sure player.p can hit it if it was hostile. */
-         /* Do not use pilot_setHostile here or music will change again. */
-         pilot_setFlag(p,PILOT_HOSTILE);
+      /* If hostile, must add counter. */
+      if (pilot_isHostile(p))
+         player.disabled_enemies++;
 
       /* Modify player combat rating if applicable. */
       /* TODO: Base off something more sensible than mass. */
@@ -1403,6 +1576,14 @@ void pilot_updateDisable( Pilot* p, const unsigned int shooter )
       pilot_rmFlag( p, PILOT_DISABLED_PERM ); /* Clear perma-disable flag if necessary. */
       pilot_rmFlag( p, PILOT_BOARDING ); /* Can get boarded again. */
 
+      /* If hostile, must remove counter. */
+      if (pilot_isHostile(p))
+      {
+         player.disabled_enemies--;
+         /* Time to play combat music. */
+         music_choose("combat");
+      }
+
       /* Reset the accumulated disable time. */
       p->dtimer_accum = 0.;
 
@@ -1411,7 +1592,7 @@ void pilot_updateDisable( Pilot* p, const unsigned int shooter )
 
       /* This is sort of a hack to make sure it gets reset... */
       if (p->id==PLAYER_ID)
-         pause_setSpeed( player_isFlag(PLAYER_DOUBLESPEED) ? 2. : 1. );
+         player_autonavResetSpeed();
    }
 }
 
@@ -1524,11 +1705,11 @@ void pilot_render( Pilot* p, const double dt )
 
    /* Check if needs scaling. */
    if (pilot_isFlag( p, PILOT_LANDING )) {
-      scalew = CLAMP( 0., 1., p->ptimer / PILOT_LANDING_DELAY );
+      scalew = CLAMP( 0., 1., p->ptimer / p->landing_delay );
       scaleh = scalew;
    }
    else if (pilot_isFlag( p, PILOT_TAKEOFF )) {
-      scalew = CLAMP( 0., 1., 1. - p->ptimer / PILOT_TAKEOFF_DELAY );
+      scalew = CLAMP( 0., 1., 1. - p->ptimer / p->landing_delay );
       scaleh = scalew;
    }
    else {
@@ -1609,7 +1790,7 @@ void pilot_renderOverlay( Pilot* p, const double dt )
          gl_renderRect( dx-2., dy-2., p->comm_msgWidth+4., gl_defFont.h+4., &cBlackHilight );
 
          /* Display text. */
-         gl_printRaw( NULL, dx, dy, &c, p->comm_msg );
+         gl_printRaw( NULL, dx, dy, &c, -1., p->comm_msg );
       }
    }
 }
@@ -1624,6 +1805,7 @@ void pilot_renderOverlay( Pilot* p, const double dt )
 void pilot_update( Pilot* pilot, const double dt )
 {
    int i, cooling, nchg;
+   int ammo_threshold;
    unsigned int l;
    Pilot *target;
    double a, px,py, vx,vy;
@@ -1634,7 +1816,7 @@ void pilot_update( Pilot* pilot, const double dt )
    double stress_falloff;
    double efficiency, thrust;
 
-   /* Check target sanity. */
+   /* Check target validity. */
    if (pilot->target != pilot->id) {
       target = pilot_get(pilot->target);
       if (target == NULL)
@@ -1679,6 +1861,39 @@ void pilot_update( Pilot* pilot, const double dt )
       /* Handle firerate timer. */
       if (o->timer > 0.)
          o->timer -= dt * pilot_heatFireRateMod( o->heat_T );
+
+      /* Handle reload timer. (Note: this works backwards compared to
+       * other timers. This helps to simplify code resetting the timer
+       * elsewhere.)
+       */
+      if ( ( o->outfit != NULL ) &&
+            ( outfit_isLauncher( o->outfit ) || outfit_isFighterBay( o->outfit ) ) &&
+            ( outfit_ammo( o->outfit ) != NULL ) ) {
+         if (o->rtimer < o->outfit->u.lau.reload_time)
+            o->rtimer += dt;
+
+         /* Initial (raw) ammo threshold */
+         ammo_threshold = o->outfit->u.lau.amount;
+         if (outfit_isLauncher(o->outfit))
+            ammo_threshold = round( (double)ammo_threshold * pilot->stats.ammo_capacity );
+
+         /* Adjust for deployed fighters if needed */
+         if ( outfit_isFighterBay( o->outfit ) )
+            ammo_threshold -= o->u.ammo.deployed;
+
+         /* Don't allow accumulation of the timer before reload allowed */
+         if ( o->u.ammo.quantity >= ammo_threshold ) {
+            o->rtimer = 0;
+         }
+
+         while ( ( o->rtimer >= o->outfit->u.lau.reload_time ) &&
+               ( o->u.ammo.quantity < ammo_threshold ) ) {
+            o->rtimer -= o->outfit->u.lau.reload_time;
+            pilot_addAmmo( pilot, o, outfit_ammo( o->outfit ), 1 );
+         }
+
+         o->rtimer = MIN( o->rtimer, o->outfit->u.lau.reload_time );
+      }
 
       /* Handle state timer. */
       if (o->stimer >= 0.) {
@@ -1741,7 +1956,7 @@ void pilot_update( Pilot* pilot, const double dt )
             pilot->ptimer = 0.;
          }
          else
-            pilot_setFlag(pilot,PILOT_DELETE);
+            pilot_delete(pilot);
          return;
       }
    }
@@ -1979,15 +2194,38 @@ void pilot_update( Pilot* pilot, const double dt )
    pilot->solid->update( pilot->solid, dt );
    gl_getSpriteFromDir( &pilot->tsx, &pilot->tsy,
          pilot->ship->gfx_space, pilot->solid->dir );
+
+   /* See if there is commodities to gather */
+   gatherable_gather( pilot->id );
+
 }
 
 /**
  * @brief Deletes a pilot.
  *
- *    @param p Pilot to delete3.
+ *    @param p Pilot to delete.
  */
 void pilot_delete( Pilot* p )
 {
+   Pilot *leader;
+   PilotOutfitSlot* dockslot;
+
+   /* Remove from parent's escort list */
+   if (p->parent != 0) {
+      leader = pilot_get(p->parent);
+      if (leader != NULL)
+         escort_rmList(leader, p->id);
+   }
+
+   /* Unmark as deployed if necessary */
+   dockslot = pilot_getDockSlot( p );
+   if ( dockslot != NULL )
+   {
+      dockslot->u.ammo.deployed--;
+      p->dockpilot = 0;
+      p->dockslot = -1;
+   }
+
    /* Set flag to mark for deletion. */
    pilot_setFlag(p, PILOT_DELETE);
 }
@@ -2049,14 +2287,14 @@ static void pilot_hyperspace( Pilot* p, double dt )
 
          if (pilot_isPlayer(p))
             if (!player_isFlag(PLAYER_AUTONAV))
-               player_message( "\erStrayed too far from jump point: jump aborted." );
+               player_message( _("\arStrayed too far from jump point: jump aborted.") );
       }
       else if (pilot_isFlag(p,PILOT_AFTERBURNER)) {
          pilot_hyperspaceAbort( p );
 
          if (pilot_isPlayer(p))
             if (!player_isFlag(PLAYER_AUTONAV))
-               player_message( "\erAfterburner active: jump aborted." );
+               player_message( _("\arAfterburner active: jump aborted.") );
       }
       else {
          if (p->ptimer < 0.) { /* engines ready */
@@ -2076,7 +2314,7 @@ static void pilot_hyperspace( Pilot* p, double dt )
 
          if (pilot_isPlayer(p))
             if (!player_isFlag(PLAYER_AUTONAV))
-               player_message( "\erStrayed too far from jump point: jump aborted." );
+               player_message( _("\arStrayed too far from jump point: jump aborted.") );
       }
       else {
          /* If the ship needs to charge up its hyperdrive, brake. */
@@ -2096,7 +2334,7 @@ static void pilot_hyperspace( Pilot* p, double dt )
 
             if (ABS(diff) < MAX_DIR_ERR) { /* we can now prepare the jump */
                if (jp_isFlag( &cur_system->jumps[p->nav_hyperspace], JP_EXITONLY )) {
-                  WARN( "Pilot '%s' trying to jump through exit-only jump from '%s' to '%s'",
+                  WARN( _("Pilot '%s' trying to jump through exit-only jump from '%s' to '%s'"),
                         p->name, cur_system->name, sys->name );
                }
                else {
@@ -2170,7 +2408,6 @@ int pilot_refuelStart( Pilot *p )
    /* Now start the boarding to refuel. */
    pilot_setFlag(p, PILOT_REFUELBOARDING);
    p->ptimer  = PILOT_REFUEL_TIME; /* Use timer to handle refueling. */
-   p->pdata   = PILOT_REFUEL_QUANTITY;
    return 1;
 }
 
@@ -2183,9 +2420,8 @@ int pilot_refuelStart( Pilot *p )
  */
 static void pilot_refuel( Pilot *p, double dt )
 {
+   (void) dt;
    Pilot *target;
-   double amount;
-   int jumps;
 
    /* Check to see if target exists, remove flag if not. */
    target = pilot_get(p->target);
@@ -2198,31 +2434,11 @@ static void pilot_refuel( Pilot *p, double dt )
    /* Match speeds. */
    p->solid->vel = target->solid->vel;
 
-   amount = CLAMP( 0., p->pdata, PILOT_REFUEL_RATE * dt);
-   p->pdata -= amount;
-
-   /* Move fuel. */
-   p->fuel        -= amount;
-   target->fuel   += amount;
-   /* Stop refueling at max. */
-   if (target->fuel > target->fuel_max) {
-      p->ptimer      = -1.;
-      target->fuel   = target->fuel_max;
-   }
-
    /* Check to see if done. */
    if (p->ptimer < 0.) {
-      /* Counteract accumulated floating point error by rounding up
-       * if pilots have > 99.99% of a jump worth of fuel.
-       */
-
-      jumps = pilot_getJumps(p);
-      if ((p->fuel / p->fuel_consumption - jumps) > 0.9999)
-         p->fuel = p->fuel_consumption * (jumps + 1);
-
-      jumps = pilot_getJumps(target);
-      if ((target->fuel / target->fuel_consumption - jumps) > 0.9999)
-         target->fuel = target->fuel_consumption * (jumps + 1);
+      /* Move fuel. */
+      p->fuel       -= PILOT_REFUEL_QUANTITY;
+      target->fuel   = MIN(target->fuel+PILOT_REFUEL_QUANTITY, target->fuel_max);
 
       pilot_rmFlag(p, PILOT_REFUELBOARDING);
       pilot_rmFlag(p, PILOT_REFUELING);
@@ -2239,8 +2455,41 @@ static void pilot_refuel( Pilot *p, double dt )
 ntime_t pilot_hyperspaceDelay( Pilot *p )
 {
    int stu;
-   stu = (int)(NT_STP_STU * p->stats.jump_delay);
+   stu = (int)(NT_PERIOD_SECONDS * p->stats.jump_delay);
    return ntime_create( 0, 0, stu );
+}
+
+
+/**
+ * @brief Loops over pilot stack to remove an asteroid as target.
+ *
+ *    @param anchor Asteroid anchor the asteroid belongs to.
+ *    @param asteroid Asteroid.
+ */
+void pilot_untargetAsteroid( int anchor, int asteroid )
+{
+   int i;
+   for (i=0; i < pilot_nstack; i++) {
+      if ((pilot_stack[i]->nav_asteroid == asteroid) && (pilot_stack[i]->nav_anchor == anchor)) {
+         pilot_stack[i]->nav_asteroid = -1;
+         pilot_stack[i]->nav_anchor   = -1;
+      }
+   }
+}
+
+
+/**
+ * @brief Checks to see how many of an outfit a pilot has.
+ */
+int pilot_numOutfit( const Pilot *p, const Outfit *o )
+{
+   int i, q;
+   q = 0;
+   for (i=0; i<p->noutfits; i++) {
+      if (p->outfits[i]->outfit == o)
+         q++;
+   }
+   return q;
 }
 
 
@@ -2268,21 +2517,27 @@ int pilot_hasCredits( Pilot *p, credits_t amount )
  */
 credits_t pilot_modCredits( Pilot *p, credits_t amount )
 {
-   uint64_t ul;
-
-   ul = (uint64_t) ABS(amount);
-
    if (amount > 0) {
-      if (CREDITS_MAX-p->credits < (credits_t)ul)
-         p->credits = CREDITS_MIN;
+      if (CREDITS_MAX - p->credits <= amount)
+         p->credits = CREDITS_MAX;
       else
-         p->credits += ul;
+         p->credits += amount;
    }
    else if (amount < 0) {
-      if ((credits_t)ul > p->credits)
+      /* ABS(CREDITS_MIN) doesn't work properly because it might be
+       * -2,147,483,648, which ABS will try to convert to 2,147,483,648.
+       * Problem is, that value would be represented like this in
+       * binary:
+       *
+       * 10000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+       *
+       * Which is actually -2,147,483,648, causing the condition
+       * ABS(amount) >= p->credits to return false (since -2,147,483,648
+       * is less than any amount of credits the player could have). */
+      if ( (amount <= CREDITS_MIN) || (ABS(amount) >= p->credits) )
          p->credits = 0;
       else
-         p->credits -= ul;
+         p->credits += amount;
    }
    return p->credits;
 }
@@ -2300,23 +2555,29 @@ credits_t pilot_modCredits( Pilot *p, credits_t amount )
  *    @param pos Initial position.
  *    @param vel Initial velocity.
  *    @param flags Used for tweaking the pilot.
+ *    @param dockpilot The pilot which launched this pilot (0 if N/A).
+ *    @param dockslot The outfit slot which launched this pilot (-1 if N/A).
  */
 void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const char *ai,
       const double dir, const Vector2d* pos, const Vector2d* vel,
-      const PilotFlags flags, const int systemFleet )
+      const PilotFlags flags, unsigned int dockpilot, int dockslot )
 {
    int i, p;
+   PilotOutfitSlot* dslot;
 
    /* Clear memory. */
    memset(pilot, 0, sizeof(Pilot));
 
-   if (pilot_isFlagRaw(flags, PILOT_PLAYER)) /* Set player ID, should probably be fixed to something sane someday. */
+   if (pilot_isFlagRaw(flags, PILOT_PLAYER)) /* Set player ID. TODO should probably be fixed to something better someday. */
       pilot->id = PLAYER_ID;
    else
       pilot->id = ++pilot_id; /* new unique pilot id based on pilot_id, can't be 0 */
 
    /* Defaults. */
    pilot->autoweap = 1;
+   pilot->aimLines = 0;
+   pilot->dockpilot = dockpilot;
+   pilot->dockslot = dockslot;
 
    /* Basic information. */
    pilot->ship = ship;
@@ -2325,9 +2586,6 @@ void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const 
    /* faction */
    pilot->faction = faction;
 
-   /* System fleet. */
-   pilot->systemFleet = systemFleet;
-
    /* solid */
    pilot->solid = solid_create(ship->mass, dir, pos, vel, SOLID_UPDATE_RK4);
 
@@ -2335,7 +2593,7 @@ void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const 
    pilot->armour = pilot->armour_max = 1.; /* hack to have full armour */
    pilot->shield = pilot->shield_max = 1.; /* ditto shield */
    pilot->energy = pilot->energy_max = 1.; /* ditto energy */
-   pilot->fuel   = pilot->fuel_max   = 1.; /* ditto fuel */
+   pilot->fuel   = pilot->fuel_max   = 1; /* ditto fuel */
    pilot_calcStats(pilot);
    pilot->stress = 0.; /* No stress. */
 
@@ -2354,28 +2612,30 @@ void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const 
    p = 0;
    for (i=0; i<pilot->outfit_nstructure; i++) {
       pilot->outfits[p] = &pilot->outfit_structure[i];
+      pilot->outfits[ p ]->id    = p;
       pilot->outfits[p]->sslot = &ship->outfit_structure[i];
+      pilot->outfits[p]->weapset = -1;
       if (ship->outfit_structure[i].data != NULL)
          pilot_addOutfitRaw( pilot, ship->outfit_structure[i].data, pilot->outfits[p] );
       p++;
    }
    for (i=0; i<pilot->outfit_nutility; i++) {
       pilot->outfits[p] = &pilot->outfit_utility[i];
+      pilot->outfits[ p ]->id    = p;
       pilot->outfits[p]->sslot = &ship->outfit_utility[i];
+      pilot->outfits[p]->weapset = -1;
       if (ship->outfit_utility[i].data != NULL)
          pilot_addOutfitRaw( pilot, ship->outfit_utility[i].data, pilot->outfits[p] );
       p++;
    }
    for (i=0; i<pilot->outfit_nweapon; i++) {
       pilot->outfits[p] = &pilot->outfit_weapon[i];
+      pilot->outfits[ p ]->id  = p;
       pilot->outfits[p]->sslot = &ship->outfit_weapon[i];
       if (ship->outfit_weapon[i].data != NULL)
          pilot_addOutfitRaw( pilot, ship->outfit_weapon[i].data, pilot->outfits[p] );
       p++;
    }
-   /* Second pass set ID. */
-   for (i=0; i<pilot->noutfits; i++)
-      pilot->outfits[i]->id = i;
 
    /* cargo - must be set before calcStats */
    pilot->cargo_free = pilot->ship->cap_cargo; /* should get redone with calcCargo */
@@ -2392,11 +2652,16 @@ void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const 
    pilot->energy = pilot->energy_max;
    pilot->fuel   = pilot->fuel_max;
 
-   /* Sanity check. */
+   /* Mark as deployed if needed */
+   dslot = pilot_getDockSlot( pilot );
+   if (dslot != NULL)
+      dslot->u.ammo.deployed++;
+
+   /* Safety check. */
 #ifdef DEBUGGING
    const char *str = pilot_checkSpaceworthy( pilot );
    if (str != NULL)
-      DEBUG( "Pilot '%s' failed sanity check: %s", pilot->name, str );
+      DEBUG( _("Pilot '%s' failed safety check: %s"), pilot->name, str );
 #endif /* DEBUGGING */
 
    /* set flags and functions */
@@ -2429,15 +2694,23 @@ void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const 
    pilot_setTarget( pilot, pilot->id ); /* No target. */
    pilot->nav_planet       = -1;
    pilot->nav_hyperspace   = -1;
+   pilot->nav_anchor       = -1;
+   pilot->nav_asteroid     = -1;
 
    /* Check takeoff. */
    if (pilot_isFlagRaw( flags, PILOT_TAKEOFF )) {
-      pilot->ptimer = PILOT_TAKEOFF_DELAY;
+      pilot->landing_delay = PILOT_TAKEOFF_DELAY * pilot->ship->dt_default;
+      pilot->ptimer = pilot->landing_delay;
    }
+
+   /* Create empty table for messages. */
+   lua_newtable(naevL);
+   pilot->messages = luaL_ref(naevL, LUA_REGISTRYINDEX);
 
    /* AI */
    if (ai != NULL)
       ai_pinit( pilot, ai ); /* Must run before ai_create */
+   pilot->shoot_indicator = 0;
 }
 
 
@@ -2452,14 +2725,14 @@ void pilot_init( Pilot* pilot, Ship* ship, const char* name, int faction, const 
  */
 unsigned int pilot_create( Ship* ship, const char* name, int faction, const char *ai,
       const double dir, const Vector2d* pos, const Vector2d* vel,
-      const PilotFlags flags, const int systemFleet )
+      const PilotFlags flags, unsigned int dockpilot, int dockslot )
 {
    Pilot *dyn;
 
    /* Allocate pilot memory. */
    dyn = malloc(sizeof(Pilot));
    if (dyn == NULL) {
-      WARN("Unable to allocate memory");
+      WARN(_("Unable to allocate memory"));
       return 0;
    }
 
@@ -2477,7 +2750,7 @@ unsigned int pilot_create( Ship* ship, const char* name, int faction, const char
    pilot_nstack++; /* there's a new pilot */
 
    /* Initialize the pilot. */
-   pilot_init( dyn, ship, name, faction, ai, dir, pos, vel, flags, systemFleet );
+   pilot_init( dyn, ship, name, faction, ai, dir, pos, vel, flags, dockpilot, dockslot );
 
    return dyn->id;
 }
@@ -2499,11 +2772,11 @@ Pilot* pilot_createEmpty( Ship* ship, const char* name,
    Pilot* dyn;
    dyn = malloc(sizeof(Pilot));
    if (dyn == NULL) {
-      WARN("Unable to allocate memory");
+      WARN(_("Unable to allocate memory"));
       return 0;
    }
    pilot_setFlagRaw( flags, PILOT_EMPTY );
-   pilot_init( dyn, ship, name, faction, ai, 0., NULL, NULL, flags, -1 );
+   pilot_init( dyn, ship, name, faction, ai, 0., NULL, NULL, flags, 0, 0 );
    return dyn;
 }
 
@@ -2557,20 +2830,21 @@ Pilot* pilot_copy( Pilot* src )
    dest->afterburner = NULL;
 
    /* Hooks get cleared. */
-   dest->hooks          = NULL;
-   dest->nhooks         = 0;
+   dest->hooks           = NULL;
+   dest->nhooks          = 0;
 
    /* Copy has no escorts. */
-   dest->escorts        = NULL;
-   dest->nescorts       = 0;
+   dest->escorts         = NULL;
+   dest->nescorts        = 0;
 
    /* AI is not copied. */
-   dest->task           = NULL;
+   dest->task            = NULL;
+   dest->shoot_indicator = 0;
 
    /* Set pointers and friends to NULL. */
    /* Commodities. */
-   dest->commodities    = NULL;
-   dest->ncommodities   = 0;
+   dest->commodities     = NULL;
+   dest->ncommodities    = 0;
    /* Calculate stats. */
    pilot_calcStats(dest);
 
@@ -2584,34 +2858,113 @@ Pilot* pilot_copy( Pilot* src )
 
 
 /**
+ * @brief Finds a spawn point for a pilot
+ *
+ *
+ */
+void pilot_choosePoint( Vector2d *vp, Planet **planet, JumpPoint **jump, int lf, int ignore_rules, int guerilla )
+{
+   int nind, i, j, *ind;
+   int nfact, *fact;
+   double chance, limit;
+   JumpPoint **validJumpPoints;
+   JumpPoint *target;
+
+   /* Initialize. */
+   *planet = NULL;
+   *jump   = NULL;
+   vectnull( vp );
+
+   /* Build landable planet table. */
+   ind   = NULL;
+   nind  = 0;
+   if (cur_system->nplanets > 0) {
+      ind = malloc( sizeof(int) * cur_system->nplanets );
+      for (i=0; i<cur_system->nplanets; i++)
+         if (planet_hasService(cur_system->planets[i],PLANET_SERVICE_INHABITED) &&
+               !areEnemies(lf,cur_system->planets[i]->faction))
+            ind[ nind++ ] = i;
+   }
+
+   /* Build jumpable jump table. */
+   validJumpPoints = array_create_size( JumpPoint*, cur_system->njumps );
+   if (cur_system->njumps > 0) {
+      for (i=0; i<cur_system->njumps; i++) {
+         /* The jump into the system must not be exit-only, and unless
+          * ignore_rules is set, must also be non-hidden
+          * (excepted if the pilot is guerilla) and have faction
+          * presence matching the pilot's on the remote side.
+          */
+         target = cur_system->jumps[i].returnJump;
+
+         limit = 0.;
+         if (guerilla) {/* Test enemy presence on the other side. */
+            fact = faction_getEnemies( lf, &nfact );
+            for (j=0; j<nfact ; j++)
+               limit += system_getPresence( cur_system->jumps[i].target, fact[j] );
+         }
+
+         if (!jp_isFlag( target, JP_EXITONLY ) && (ignore_rules ||
+               ( (!jp_isFlag( &cur_system->jumps[i], JP_HIDDEN ) || guerilla ) &&
+               (system_getPresence( cur_system->jumps[i].target, lf ) > limit))))
+            array_push_back(&validJumpPoints, target);
+      }
+   }
+
+   /* Unusual case no landable nor presence, we'll just jump in randomly. */
+   if ((nind == 0) && (array_size(validJumpPoints)==0)) {
+      if (guerilla) /* Guerilla ships are created far away in deep space. */
+         vect_pset ( vp, 1.5*cur_system->radius, RNGF()*2*M_PI );
+      else if (cur_system->njumps > 0) {
+         for (i=0; i<cur_system->njumps; i++)
+            array_push_back(&validJumpPoints, cur_system->jumps[i].returnJump);
+      }
+      else {
+         WARN(_("Creating pilot in system with no jumps nor planets to take off from!"));
+         vectnull( vp );
+      }
+   }
+
+   /* Calculate jump chance. */
+   if ((nind > 0) || (array_size(validJumpPoints) > 0)) {
+      chance = array_size(validJumpPoints);
+      chance = chance / (chance + nind);
+
+      /* Random jump in. */
+      if ((ind == NULL) || ((RNGF() <= chance) && (validJumpPoints != NULL)))
+         *jump = validJumpPoints[ RNG_BASE(0,array_size(validJumpPoints)-1) ];
+      /* Random take off. */
+      else if (ind !=NULL && nind != 0) {
+         *planet = cur_system->planets[ ind[ RNG_BASE(0,nind-1) ] ];
+      }
+   }
+
+   /* Free memory allocated. */
+   free( ind );
+   array_free(validJumpPoints);
+}
+
+
+/**
  * @brief Frees and cleans up a pilot
  *
  *    @param p Pilot to free.
  */
 void pilot_free( Pilot* p )
 {
-   int i;
-
    /* Clear up pilot hooks. */
    pilot_clearHooks(p);
 
    /* If hostile, must remove counter. */
    pilot_rmHostile(p);
 
-   /* Free weapon sets. */
    pilot_weapSetFree(p);
 
-   /* Free outfits. */
-   if (p->outfits != NULL)
-      free(p->outfits);
-   if (p->outfit_structure != NULL)
-      free(p->outfit_structure);
-   if (p->outfit_utility != NULL)
-      free(p->outfit_utility);
-   if (p->outfit_weapon != NULL)
-      free(p->outfit_weapon);
+   free(p->outfits);
+   free(p->outfit_structure);
+   free(p->outfit_utility);
+   free(p->outfit_weapon);
 
-   /* Remove commodities. */
    while (p->commodities != NULL)
       pilot_cargoRmRaw( p, p->commodities[0].commodity,
             p->commodities[0].quantity, 1 );
@@ -2620,27 +2973,20 @@ void pilot_free( Pilot* p )
    if (p->ai != NULL)
       ai_destroy(p); /* Must be destroyed first if applicable. */
 
-   /* Free name and title. */
-   if (p->name != NULL)
-      free(p->name);
-   if (p->title != NULL)
-      free(p->title);
+   free(p->name);
+   free(p->title);
    /* Case if pilot is the player. */
    if (player.p==p)
       player.p = NULL;
    solid_free(p->solid);
-   if (p->mounted != NULL)
-      free(p->mounted);
+   free(p->mounted);
 
-   /* Free escorts. */
-   for (i=0; i<p->nescorts; i++)
-      free(p->escorts[i].ship);
-   if (p->escorts)
-      free(p->escorts);
+   escort_freeList(p);
 
-   /* Free comm message. */
-   if (p->comm_msg != NULL)
-      free(p->comm_msg);
+   free(p->comm_msg);
+
+   /* Free messages. */
+   luaL_unref(naevL, p->messages, LUA_REGISTRYINDEX);
 
 #ifdef DEBUGGING
    memset( p, 0, sizeof(Pilot) );
@@ -2658,6 +3004,7 @@ void pilot_free( Pilot* p )
 void pilot_destroy(Pilot* p)
 {
    int i;
+   PilotOutfitSlot* dockslot;
 
    /* find the pilot */
    for (i=0; i < pilot_nstack; i++)
@@ -2668,6 +3015,14 @@ void pilot_destroy(Pilot* p)
    if (p->presence > 0) {
       system_rmCurrentPresence( cur_system, p->faction, p->presence );
       p->presence = 0;
+   }
+
+   /* Unmark as deployed if necessary */
+   dockslot = pilot_getDockSlot( p );
+   if ( dockslot != NULL ) {
+      dockslot->u.ammo.deployed--;
+      p->dockpilot = 0;
+      p->dockslot = -1;
    }
 
    /* pilot is eliminated */
@@ -2699,27 +3054,33 @@ void pilots_free (void)
 
 
 /**
- * @brief Cleans up the pilot stack - leaves the player.
+ * @brief Cleans up the pilot stack - leaves the player
+ *
+ *    @param persist Do not remove persistant pilots.
  */
-void pilots_clean (void)
+void pilots_clean (int persist)
 {
-   int i;
+   int i, persist_count=0;
+   Pilot *p;
    for (i=0; i < pilot_nstack; i++) {
-      /* we'll set player.p at privileged position */
-      if ((player.p != NULL) && (pilot_stack[i] == player.p)) {
-         pilot_stack[0] = player.p;
-         pilot_stack[0]->lockons = 0; /* Clear lockons. */
+      /* move player and persisted pilots to start */
+      if (pilot_stack[i] == player.p ||
+          (persist && pilot_isFlag(pilot_stack[i], PILOT_PERSIST))) {
+         /* Have to swap the pilots so it gets properly freed. */
+         p = pilot_stack[persist_count];
+         pilot_stack[persist_count] = pilot_stack[i];
+         pilot_stack[i] = p;
+         /* Misc clean up. */
+         pilot_stack[persist_count]->lockons = 0; /* Clear lockons. */
+         pilot_stack[persist_count]->projectiles = 0; /* Clear projectiles. */
+         pilot_clearTimers( pilot_stack[persist_count] ); /* Reset timers. */
+         persist_count++;
       }
       else /* rest get killed */
          pilot_free(pilot_stack[i]);
    }
 
-   if (player.p != NULL) { /* set stack to 1 if pilot exists */
-      pilot_nstack = 1;
-      pilot_clearTimers( player.p ); /* Reset the player's timers. */
-   }
-   else
-      pilot_nstack = 0;
+   pilot_nstack = persist_count;
 
    /* Clear global hooks. */
    pilots_clearGlobalHooks();
@@ -2743,7 +3104,7 @@ void pilots_clear (void)
  */
 void pilots_cleanAll (void)
 {
-   pilots_clean();
+   pilots_clean(0);
    if (player.p != NULL) {
       pilot_free(player.p);
       player.p = NULL;
@@ -2895,24 +3256,9 @@ void pilot_clearTimers( Pilot *pilot )
 
 
 /**
- * @brief Updates the systemFleet of all pilots.
- *
- * @param index Index number that was deleted.
- */
-void pilots_updateSystemFleet( const int deletedIndex )
-{
-   int i;
-
-   for(i = 0; i < pilot_nstack; i++)
-      if(pilot_stack[i]->systemFleet >= deletedIndex)
-         pilot_stack[i]->systemFleet--;
-
-   return;
-}
-
-/**
  * @brief Gets the relative size(shipmass) between the current pilot and the specified target
  *
+ *    @param cur_pilot the current pilot
  *    @param p the pilot whose mass we will compare
  *    @return A number from 0 to 1 mapping the relative masses
  */
@@ -2924,13 +3270,15 @@ double pilot_relsize( const Pilot* cur_pilot, const Pilot* p )
 /**
  * @brief Gets the relative damage output(total DPS) between the current pilot and the specified target
  *
- *    @param p the pilot whose dps we will compare
- *    @return A number from 0 to 1 mapping the relative damage output
+ *    @param cur_pilot Reference pilot to compare against.
+ *    @param p The pilot whose dps we will compare
+ *    @return The relative dps of p with respect to cur_pilot (0.5 is equal, 1 is p is infinitely stronger, 0 is t is infinitely stronger).
  */
 double pilot_reldps( const Pilot* cur_pilot, const Pilot* p )
 {
    int i;
-   int DPSaccum_target = 0, DPSaccum_pilot = 0;
+   double DPSaccum_target = 0.;
+   double DPSaccum_pilot = 0.;
    double delay_cache, damage_cache;
    Outfit *o;
    const Damage *dmg;
@@ -2963,24 +3311,25 @@ double pilot_reldps( const Pilot* cur_pilot, const Pilot* p )
          DPSaccum_pilot += ( damage_cache/delay_cache );
    }
 
-   if ((DPSaccum_target > 0) && (DPSaccum_pilot > 0))
-      return (1 - 1 / (1 + ((double)DPSaccum_pilot / (double)DPSaccum_target)) );
-   else if (DPSaccum_pilot > 0)
+   if ((DPSaccum_target > 1e-6) && (DPSaccum_pilot > 1e-6))
+      return DPSaccum_pilot / (DPSaccum_target + DPSaccum_pilot);
+   else if (DPSaccum_pilot > 0.)
       return 1;
-   else
-      return 0;
+   return 0;
 }
 
 /**
  * @brief Gets the relative hp(combined shields and armour) between the current pilot and the specified target
  *
+ *    @param cur_pilot Reference pilot.
  *    @param p the pilot whose shields/armour we will compare
- *    @return A number from 0 to 1 mapping the relative HPs
+ *    @return A number from 0 to 1 mapping the relative HPs (0.5 is equal, 1 is reference pilot is infinity, 0 is current pilot is infinity)
  */
 double pilot_relhp( const Pilot* cur_pilot, const Pilot* p )
 {
-   return (1 - 1 / (1 + ((double)(cur_pilot -> armour_max + cur_pilot -> shield_max) /
-         (double)(p -> armour_max + p -> shield_max))));
+   double c_hp = cur_pilot -> armour_max + cur_pilot -> shield_max;
+   double p_hp = p -> armour_max + p -> shield_max;
+   return c_hp / (p_hp + c_hp);
 }
 
 
@@ -3000,6 +3349,9 @@ credits_t pilot_worth( const Pilot *p )
    for (i=0; i<p->noutfits; i++) {
       if (p->outfits[i]->outfit == NULL)
          continue;
+      /* Don't count unique outfits. */
+      if (outfit_isProp(p->outfits[i]->outfit,OUTFIT_PROP_UNIQUE))
+         continue;
       price += p->outfits[i]->outfit->price;
    }
 
@@ -3007,5 +3359,34 @@ credits_t pilot_worth( const Pilot *p )
 }
 
 
+/**
+ * @brief Sends a message
+ *
+ * @param p Pilot to send message
+ * @param receiver Pilot to receive it
+ * @param type Type of message.
+ * @param idx Index of data on lua stack or 0
+ */
+void pilot_msg(Pilot *p, Pilot *receiver, const char *type, unsigned int idx)
+{
+   if (idx != 0)
+      lua_pushvalue(naevL, idx); /* data */
+   else
+      lua_pushnil(naevL); /* data */
 
+   lua_newtable(naevL); /* data, msg */
 
+   lua_pushpilot(naevL, p->id); /* data, msg, sender */
+   lua_rawseti(naevL, -2, 1); /* data, msg */
+
+   lua_pushstring(naevL, type); /* data, msg, type */
+   lua_rawseti(naevL, -2, 2); /* data, msg */
+
+   lua_pushvalue(naevL, -2); /* data, msg, data */
+   lua_rawseti(naevL, -2, 3); /* data, msg */
+
+   lua_rawgeti(naevL, LUA_REGISTRYINDEX, receiver->messages); /* data, msg, messages */
+   lua_pushvalue(naevL, -2); /* data, msg, messages, msg */
+   lua_rawseti(naevL, -2, lua_objlen(naevL, -2)+1); /* data, msg, messages */
+   lua_pop(naevL, 3); /*  */
+}

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <outfit name="Map: The Frontier">
  <general>
   <mass>0</mass>
@@ -31,6 +31,7 @@
   <sys name="Brimstone">
    <jump>Shickhaw</jump>
    <jump>Triap</jump>
+   <asset>Alleyway</asset>
    <asset>Brimstone I</asset>
    <asset>Brimstone II</asset>
    <asset>Brimstone III</asset>

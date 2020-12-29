@@ -3,13 +3,21 @@
  */
 
 
-
 #ifndef MAP_H
 #  define MAP_H
 
 
+#include "attributes.h"
 #include "space.h"
 
+#define MAP_WDWNAME     "wdwStarMap" /**< Map window name. */
+
+typedef struct MapDecorator_ {
+	glTexture* image;
+	double x,y;
+	int detection_radius;
+	int auto_fade;
+} MapDecorator;
 
 /* init/exit */
 int map_init (void);
@@ -29,9 +37,8 @@ void map_clear (void);
 void map_jump (void);
 
 /* manipulate universe stuff */
-StarSystem** map_getJumpPath( int* njumps, const char* sysstart,
-     const char* sysend, int ignore_known, int show_hidden,
-     StarSystem** old_data );
+StarSystem **map_getJumpPath( int *njumps, const char *sysstart, const char *sysend, int ignore_known, int show_hidden,
+                              StarSystem **old_data ) WARN_IF( *njumps < 0, "njumps must be >= 0" );
 int map_map( const Outfit *map );
 int map_isMapped( const Outfit* map );
 
@@ -47,12 +54,14 @@ int map_center( const char *sys );
 void map_renderParams( double bx, double by, double xpos, double ypos,
       double w, double h, double zoom, double *x, double *y, double *r );
 void map_renderFactionDisks( double x, double y, int editor);
+void map_renderDecorators( double x, double y, int editor);
 void map_renderJumps( double x, double y, int editor);
 void map_renderSystems( double bx, double by, double x, double y,
       double w, double h, double r, int editor );
 void map_renderNames( double bx, double by, double x, double y,
       double w, double h, int editor );
-
+void map_updateFactionPresence( const unsigned int wid, const char *name, const StarSystem *sys, int omniscient );
+int map_load (void);
 
 #endif /* MAP_H */
 

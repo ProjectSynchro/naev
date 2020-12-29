@@ -8,16 +8,17 @@
 #  define SHIP_H
 
 
+#include "collision.h"
+#include "commodity.h"
+#include "nxml.h"
 #include "opengl.h"
 #include "outfit.h"
 #include "sound.h"
-#include "nxml.h"
-#include "economy.h"
 
 
 /* target gfx dimensions */
 #define SHIP_TARGET_W   128 /**< Ship target graphic width. */
-#define SHIP_TARGET_H   96 /**< Ship target graphic height. */
+#define SHIP_TARGET_H   128 /**< Ship target graphic height. */
 
 
 /**
@@ -85,6 +86,7 @@ typedef struct Ship_ {
    char* name;       /**< Ship name */
    char* base_type;  /**< Ship's base type, basically used for figuring out what ships are related. */
    ShipClass class;  /**< Ship class */
+   int rarity;       /**< Rarity. */
 
    /* store stuff */
    credits_t price;  /**< Cost to buy */
@@ -102,8 +104,9 @@ typedef struct Ship_ {
    double mass;             /**< Mass ship has. */
    double cpu;              /**< Amount of CPU the ship has. */
    int fuel;                /**< How much fuel by default. */
-   double fuel_consumption; /**< Fuel consumption by engine. */
+   int fuel_consumption; /**< Fuel consumption by engine. */
    double cap_cargo;        /**< Cargo capacity (in volume). */
+   double dt_default;      /**< Default/minimum time delta. */
 
    /* health */
    double armour;    /**< Maximum base armour in MJ. */
@@ -120,6 +123,12 @@ typedef struct Ship_ {
    glTexture *gfx_target; /**< Targeting window graphic. */
    glTexture *gfx_store; /**< Store graphic. */
    char* gfx_comm;   /**< Name of graphic for communication. */
+   glTexture** gfx_overlays; /**< Store overlay graphics. */
+   int gfx_noverlays; /**< Number of overlays. */
+
+   /* collision polygon */
+   CollPoly *polygon; /**< Collision polygons. */
+   int npolygon; /**< Number of collision polygons. */
 
    /* GUI interface */
    char* gui;        /**< Name of the GUI the ship uses by default. */
@@ -163,6 +172,7 @@ ShipClass ship_classFromString( char* str );
 credits_t ship_basePrice( const Ship* s );
 credits_t ship_buyPrice( const Ship* s );
 glTexture* ship_loadCommGFX( Ship* s );
+int ship_size( const Ship *s );
 
 
 /*

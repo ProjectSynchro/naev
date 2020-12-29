@@ -1,25 +1,34 @@
 --[[
+<?xml version='1.0' encoding='utf8'?>
+<event name="Shipwreck">
+  <trigger>enter</trigger>
+  <chance>3</chance>
+  <cond>system.cur():presence("Pirate") &gt; 0</cond>
+  <flags>
+   <unique />
+  </flags>
+  <notes>
+   <tier>1</tier>
+  </notes>
+ </event>
+ --]]
+--[[
 -- Shipwreck Event
 -- 
 -- Creates a wrecked ship that asks for help. If the player boards it, the event switches to the Space Family mission.
--- See dat/missions/neutral/spacefamily.lua
+-- See dat/missions/neutral/spacefamily
 -- 
--- 12/02/2010 - Added visibility/highlight options for use in bigsystems (Anatolis)
+-- 12/02/2010 - Added visibility/highlight options for use in big systems (Anatolis)
 --]]
 
-lang = naev.lang()
-if lang == "es" then
-    -- not translated atm
-else -- default english 
-
 -- Text
-    broadcastmsg = "SOS. This is %s. We are shipwrecked. Requesting immediate assistance."
-    shipname = "August" --The ship will have a unique name
-end
+broadcastmsg = _("SOS. This is %s. We are shipwrecked. Requesting immediate assistance.")
+shipname = _("August") --The ship will have a unique name
+shipwreck = _("Shipwrecked %s")
 
 function create ()
 
-    -- The shipwrech will be a random trader vessel.
+    -- The shipwreck will be a random trader vessel.
     r = rnd.rnd()
     if r > 0.95 then
         ship = "Trader Gawain"
@@ -39,7 +48,7 @@ function create ()
     for k,v in ipairs(p) do
         v:setFaction("Derelict")
         v:disable()
-        v:rename("Shipwrecked " .. shipname)
+        v:rename(shipwreck:format(shipname))
         -- Added extra visibility for big systems (A.)
         v:setVisplayer( true )
         v:setHilight( true )

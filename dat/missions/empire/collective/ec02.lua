@@ -1,4 +1,23 @@
 --[[
+<?xml version='1.0' encoding='utf8'?>
+<mission name="Collective Espionage 2">
+  <flags>
+   <unique />
+  </flags>
+  <avail>
+   <priority>2</priority>
+   <cond>faction.playerStanding("Empire") &gt; 5 and var.peek("collective_fail") ~= true</cond>
+   <done>Collective Espionage 1</done>
+   <chance>100</chance>
+   <location>Bar</location>
+   <planet>Omega Station</planet>
+  </avail>
+  <notes>
+   <campaign>Collective</campaign>
+  </notes>
+ </mission>
+ --]]
+--[[
 
    Collective Espionage II
 
@@ -11,36 +30,36 @@
 
 ]]--
 
-lang = naev.lang()
-if lang == "es" then
-   -- not translated atm
-else -- default english
-   bar_desc = "You notice Lt. Commander Dimitri at one of the booths."
-   misn_title = "Collective Espionage"
-   misn_reward = "None"
-   misn_desc = {}
-   misn_desc[1] = "Land on %s in the %s system to monitor Collective communications."
-   misn_desc[2] = "Travel back to %s in %s."
-   title = {}
-   title[1] = "Collective Espionage"
-   title[2] = "Mission Accomplished"
-   text = {}
-   text[1] = [[You head over to Lt. Commander Dimitri to see what the results are.
-    "Hello there again, %s. Bad news on your latest run, you got nothing other than the usual robotic chatter. We'll have to send you out again, but this time we'll follow a different approach. Interested in giving it another shot?"]]
-   text[2] = [["On your last run, you were monitoring while out in the open. While you do get better signals, upon noticing your presence, the drones will go into combat mode, and yield only combat transmissions. This mission will consist of hiding and monitoring from a safer spot, hopefully catching them more relaxed."
-    "When the Collective struck, they quickly took many systems; one of the bigger hits was %s, an important gas giant rich in methane. They destroyed the gas refineries and slaughtered the humans. There was nothing we could do. The turbulence and dense atmosphere there should be able to hide your ship."]]
-   text[3] = [["The plan is to have you infiltrate Collective space alone to not arouse too much suspicion. Once inside, you should head to %s in the %s system. Stay low and monitor all frequencies in the system. If anything is suspicious, we'll surely catch it then. Don't forget to make sure you have the four jumps of fuel to be able to get there and back in one piece."
-    "Good luck, I'll be waiting for you on your return."]]
-   text[4] = [[You quickly land on %s and hide in its deep dense methane atmosphere. Your monitoring gear flickers into action, hopefully catching something of some use. With some luck there won't be too many Collective drones when you take off.]]
-   text[5] = [[That should be enough. Time to report your findings.]]
-   text[6] = [[As your ship touches ground, you see Lt. Commander Dimitri come out to greet you.
-    "How was the weather?" he asks jokingly. "Glad to see you're still in one piece. We'll get right on analysing the data acquired. Those robots have to be up to something. Meet me in the bar later. Meanwhile give yourself a treat; you've earned it. We've made a 100k credit deposit in your bank account. Enjoy it."]]
+require "missions/empire/common"
+require "numstring"
 
-    osd_msg = {}
-    osd_msg[1] = "Fly to %s and land on %s"
-    osd_msg[2] = "Return to %s with your findings"
-    osd_msg["__save"] = true 
-end
+bar_desc = _("You notice Lt. Commander Dimitri at one of the booths.")
+misn_title = _("Collective Espionage")
+misn_reward = creditstring(700000) -- 700K
+misn_desc = {}
+misn_desc[1] = _("Land on %s in the %s system to monitor Collective communications")
+misn_desc[2] = _("Travel back to %s in %s")
+title = {}
+title[1] = _("Collective Espionage")
+title[2] = _("Mission Accomplished")
+text = {}
+text[1] = _([[You head over to Lt. Commander Dimitri to see what the results are.
+    "Hello there again, %s. Bad news on your latest run, you got nothing other than the usual robotic chatter. We'll have to send you out again, but this time we'll follow a different approach. Interested in giving it another shot?"]])
+text[2] = _([["On your last run, you were monitoring while out in the open. While you do get better signals, upon noticing your presence, the drones will go into combat mode, and yield only combat transmissions. This mission will consist of hiding and monitoring from a safer spot, hopefully catching them more relaxed.
+    "When the Collective struck, they quickly took many systems; one of the bigger hits was %s, an important gas giant rich in methane. They destroyed the gas refineries and slaughtered the humans. There was nothing we could do. The turbulence and dense atmosphere there should be able to hide your ship."]])
+text[3] = _([["The plan is to have you infiltrate Collective space alone to not arouse too much suspicion. Once inside, you should head to %s in the %s system. Stay low and monitor all frequencies in the system. If anything is suspicious, we'll surely catch it then. Don't forget to make sure you have the four jumps of fuel to be able to get there and back in one piece.
+    "Good luck, I'll be waiting for you on your return."]])
+text[4] = _([[You quickly land on %s and hide in its deep dense methane atmosphere. Your monitoring gear flickers into action, hopefully catching something of some use. With some luck there won't be too many Collective drones when you take off.]])
+text[5] = _([[That should be enough. Time to report your findings.]])
+text[6] = _([[As your ship touches ground, you see Lt. Commander Dimitri come out to greet you.
+    "How was the weather?" he asks jokingly. "Glad to see you're still in one piece. We'll get right on analyzing the data acquired. Those robots have to be up to something. Meet me in the bar later. Meanwhile give yourself a treat; you've earned it. We've made a 700K credit deposit into your bank account. Enjoy it."]])
+
+osd_msg = {}
+osd_msg[1] = _("Fly to %s and land on %s")
+osd_msg[2] = _("Return to %s with your findings")
+osd_msg["__save"] = true 
+
+log_text = _([[You monitored Collective communications for the Empire again, this time while landed on Eiroik. Lt. Commander Dimitri told you to meet him in the bar on Omega Station again later.]])
 
 
 function create ()
@@ -52,7 +71,7 @@ function create ()
         abort()
     end
 
-   misn.setNPC( "Dimitri", "empire/unique/dimitri" )
+   misn.setNPC( _("Dimitri"), "empire/unique/dimitri" )
    misn.setDesc( bar_desc )
 end
 
@@ -95,7 +114,9 @@ function land()
 
       -- Rewards
       faction.modPlayerSingle("Empire",5)
-      player.pay( 100000 )
+      player.pay( 700000 )
+
+      emp_addCollectiveLog( log_text )
 
       misn.finish(true)
    end
@@ -146,7 +167,7 @@ function moveSwarm(fleet, pos)
         if j:exists() then
             j:control()
             j:setVisplayer(true)
-            j:goto(j:pos() + dpos, false)
+            j:moveto(j:pos() + dpos, false)
         end
     end
 end

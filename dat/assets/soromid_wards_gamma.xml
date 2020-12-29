@@ -15,12 +15,13 @@
  </presence>
  <general>
   <class>0</class>
-  <population>0</population>
+  <population>100</population>
   <hide>0.500000</hide>
   <services>
    <land>land_hiclass</land>
    <refuel/>
    <bar/>
+   <commodity/>
   </services>
   <commodities/>
   <description>Soromid Wards Gamma can be considered a private facility. While Alpha and Beta cater to the gene treatment needs of the rest of the galaxy, Gamma is for Soromid only. The operations here are geared toward a higher tolerance for modification that normal humans would likely not survive. The patients here are usually colonists or working personnel who need to adapt themselves to a particular climate.</description>

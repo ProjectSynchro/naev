@@ -1,4 +1,4 @@
-include("dat/factions/spawn/common.lua")
+require("factions/spawn/common")
 
 
 -- @brief Spawns a small patrol fleet.
@@ -76,7 +76,7 @@ function spawn ( presence, max )
     end
   
     -- Actually spawn the pilots
-    pilots = scom.spawn( spawn_data )
+    pilots = scom.spawn( spawn_data, "Independent" )
 
     -- Calculate spawn data
     spawn_data = scom.choose( spawn_table )

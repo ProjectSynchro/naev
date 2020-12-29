@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <outfit name="Milspec Scrambler">
  <general>
   <slot>utility</slot>
@@ -10,7 +10,7 @@
   <cpu>-3</cpu>
  </general>
  <specific type="modification">
-  <energy_usage>12</energy_usage>
+  <energy_usage>6</energy_usage>
   <ew_hide>20</ew_hide>
  </specific>
 </outfit>

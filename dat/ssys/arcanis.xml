@@ -10,7 +10,9 @@
   <x>311.000000</x>
   <y>-81.000000</y>
  </pos>
- <assets/>
+ <assets>
+  <asset>Virtual Miner Small</asset>
+ </assets>
  <jumps>
   <jump target="Raelid">
    <autopos/>
@@ -30,4 +32,15 @@
    <hide>1.250000</hide>
   </jump>
  </jumps>
+ <asteroids>
+  <asteroid>
+   <type>default</type>
+   <type>default</type>
+   <type>default</type>
+   <type>massive</type>
+   <radius>4000.000000</radius>
+   <pos x="4000.000000" y="6000.000000"/>
+   <density>1.000000</density>
+  </asteroid>
+ </asteroids>
 </ssys>

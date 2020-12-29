@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <outfit name="Lancelot Fighter Bay">
  <general>
   <slot>weapon</slot>
@@ -13,6 +13,7 @@
  <specific type="fighter bay" secondary="1">
   <ammo>Lancelot Fighter</ammo>
   <delay>6</delay>
+  <reload_time>240</reload_time>
   <amount>2</amount>
  </specific>
 </outfit>

@@ -7,8 +7,7 @@
 #  define NLUA_SHIP_H
 
 
-#include <lua.h>
-
+#include "nlua.h"
 #include "ship.h"
 
 
@@ -18,7 +17,7 @@
 /*
  * Library loading
  */
-int nlua_loadShip( lua_State *L, int readonly );
+int nlua_loadShip( nlua_env env );
 
 /*
  * Ship operations

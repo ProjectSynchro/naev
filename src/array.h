@@ -38,12 +38,18 @@
 #ifndef ARRAY_H
 #  define ARRAY_H
 
-#include <stddef.h>
+/** @cond */
 #include <assert.h>
+#include <stddef.h>
 #include <stdint.h>
 
+#ifdef HAVE_STDALIGN_H
+#include <stdalign.h>
+#endif /* HAVE_STDALIGN_H */
+/** @endcond */
+
 #ifdef DEBUGGING
-#define SENTINEL ((int)0xbabecafe) /**< Badass sentinel. */
+#define ARRAY_SENTINEL ((int)0xbabecafe) /**< Badass sentinel. */
 #endif
 
 /**
@@ -53,15 +59,23 @@ typedef struct {
 #ifdef DEBUGGING
    int _sentinel;         /**< Sentinel for when debugging. */
 #endif
-   int _reserved;         /**< Number of elements reserved */
-   int _size;             /**< Number of elements in the array */
-   char _array[0];        /**< Begin of the array */
+   size_t _reserved;      /**< Number of elements reserved */
+   size_t _size;          /**< Number of elements in the array */
+   /* The following check is fairly nasty and is here to handle cases
+    * when being compiled with too old versions of gcc. Note that this
+    * does lead to undefined behaviour, but at the current time it is
+    * necessary to compile for Steam. */
+#ifdef HAVE_STDALIGN_H
+   char alignas(max_align_t) _array[0];  /**< Begin of the array */
+#else /* HAVE_STDALIGN_H */
+   char _array[0]; /* Undefined behaviour that seems to "work" */
+#endif /* HAVE_STDALIGN_H */
 } _private_container;
 
 
-void *_array_create_helper(size_t e_size);
+void *_array_create_helper(size_t e_size, size_t initial_size);
 void *_array_grow_helper(void **a, size_t e_size);
-void _array_resize_helper(void **a, size_t e_size, int new_size);
+void _array_resize_helper(void **a, size_t e_size, size_t new_size);
 void _array_erase_helper(void **a, size_t e_size, void *first, void *last);
 void _array_shrink_helper(void **a, size_t e_size);
 void _array_free_helper(void *a);
@@ -79,7 +93,7 @@ __inline__ static _private_container *_array_private_container(void *a)
    _private_container *c = (_private_container *)a - 1;
 
 #ifdef DEBUGGING
-   assert("Sentinel not found. Use array_create() to create the array." && (c->_sentinel == SENTINEL));
+   assert("Sentinel not found. Use array_create() to create the array." && (c->_sentinel == ARRAY_SENTINEL));
 #endif
 
    return c;
@@ -104,7 +118,16 @@ __inline__ static void *_array_end_helper(void *a, size_t e_size)
  *    @param basic_type Type of the array to create.
  */
 #define array_create(basic_type) \
-      ((basic_type *)(_array_create_helper(sizeof(basic_type))))
+      ((basic_type *)(_array_create_helper(sizeof(basic_type), 1)))
+
+/**
+ * @brief Creates a new dynamic array of `basic_type' with an initial capacity
+ *
+ *    @param basic_type Type of the array to create.
+ *    @param capacity Initial size.
+ */
+#define array_create_size(basic_type, capacity) \
+      ((basic_type *)(_array_create_helper(sizeof(basic_type), capacity)))
 /**
  * @brief Resizes the array to accomodate new_size elements.
  *
@@ -165,28 +188,28 @@ __inline__ static void *_array_end_helper(void *a, size_t e_size)
 /**
  * @brief Returns number of elements in the array.
  *
- *    @param ptr_array Array being manipulated.
+ *    @param array Array being manipulated.
  *    @return The size of the array (number of elements).
  */
-#define array_size(array) (_array_private_container(array)->_size)
+#define array_size(array) (int)(_array_private_container(array)->_size)
 /**
  * @brief Returns number of elements reserved.
  *
- *    @param ptr_array Array being manipulated.
+ *    @param array Array being manipulated.
  *    @return The size of the array (memory usage).
  */
 #define array_reserved(array) (_array_private_container(array)->_reserved)
 /**
  * @brief Returns a pointer to the beginning of the reserved memory space.
  *
- *    @param ptr_array Array being manipulated.
+ *    @param array Array being manipulated.
  *    @return Beginning of memory space.
  */
 #define array_begin(array) (array)
 /**
  * @brief Returns a pointer to the end of the reserved memory space.
  *
- *    @param ptr_array Array being manipulated.
+ *    @param array Array being manipulated.
  *    @return End of memory space.
  */
 #define array_end(array) ((__typeof__(array))_array_end_helper((array), sizeof((array)[0])))

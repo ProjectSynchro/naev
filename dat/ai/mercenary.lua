@@ -1,5 +1,6 @@
-include("dat/ai/tpl/generic.lua")
-include("dat/ai/personality/patrol.lua")
+require("ai/tpl/generic")
+require("ai/personality/patrol")
+require "numstring"
 
 -- Settings
 mem.armour_run = 40
@@ -13,13 +14,13 @@ function create ()
 
    if rnd.int() > 0.7 then
       mem.bribe = math.sqrt( ai.pilot():stats().mass ) * (750. * rnd.int() + 2500.)
-      mem.bribe_prompt = string.format("\"Your life is worth %d credits to me.\"", mem.bribe )
-      mem.bribe_paid = "\"Beat it.\""
+      mem.bribe_prompt = string.format(_("\"Your life is worth %s to me.\""), creditstring(mem.bribe) )
+      mem.bribe_paid = _("\"Beat it.\"")
    else
       if rnd.int() > 0.5 then
-         mem.bribe_no = "\"You won't buy your way out of this one.\""
+         mem.bribe_no = _("\"You won't buy your way out of this one.\"")
       else
-         mem.bribe_no = "\"I'm afraid you can't make it worth my while.\""
+         mem.bribe_no = _("\"I'm afraid you can't make it worth my while.\"")
       end
    end
 
@@ -40,15 +41,15 @@ function taunt ( target, offense )
    -- some taunts
    if offense then
       taunts = {
-            "Don't take this personally.",
-            "It's just business."
+            _("Don't take this personally."),
+            _("It's just business.")
       }
    else
       taunts = {
-            "Your skull will make a great hood ornament.",
-            "I've destroyed ships twice the size of yours!",
-            "I'll crush you like a grape!",
-            "This isn't what I signed up for!"
+            _("Your skull will make a great hood ornament."),
+            _("I've destroyed ships twice the size of yours!"),
+            _("I'll crush you like a grape!"),
+            _("This isn't what I signed up for!")
       }
    end
 

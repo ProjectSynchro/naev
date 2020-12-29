@@ -9,57 +9,60 @@
  */
 
 
-#include "player.h"
-
-#include "naev.h"
-
+/** @cond */
 #include <stdlib.h>
 
-#include "nxml.h"
-#include "pilot.h"
-#include "log.h"
-#include "opengl.h"
-#include "font.h"
-#include "ndata.h"
-#include "space.h"
-#include "rng.h"
-#include "land.h"
-#include "land_outfits.h"
-#include "sound.h"
-#include "economy.h"
-#include "pause.h"
-#include "menu.h"
-#include "toolkit.h"
-#include "dialogue.h"
-#include "mission.h"
-#include "nlua_misn.h"
-#include "ntime.h"
-#include "hook.h"
-#include "map.h"
-#include "map_overlay.h"
-#include "nfile.h"
-#include "spfx.h"
-#include "unidiff.h"
-#include "comm.h"
-#include "intro.h"
-#include "perlin.h"
+#include "naev.h"
+/** @endcond */
+
+#include "player.h"
+
 #include "ai.h"
-#include "music.h"
-#include "gui.h"
-#include "gui_omsg.h"
-#include "nlua_var.h"
-#include "escort.h"
-#include "event.h"
-#include "conf.h"
-#include "nebula.h"
-#include "equipment.h"
 #include "camera.h"
 #include "claim.h"
-#include "player_gui.h"
-#include "start.h"
+#include "comm.h"
+#include "conf.h"
+#include "dialogue.h"
+#include "economy.h"
+#include "equipment.h"
+#include "escort.h"
+#include "event.h"
+#include "font.h"
+#include "gui.h"
+#include "gui_omsg.h"
+#include "hook.h"
 #include "input.h"
+#include "intro.h"
+#include "land.h"
+#include "land_outfits.h"
+#include "log.h"
+#include "map.h"
+#include "map_overlay.h"
+#include "menu.h"
+#include "mission.h"
+#include "music.h"
+#include "ndata.h"
+#include "nebula.h"
 #include "news.h"
+#include "nfile.h"
+#include "nlua_misn.h"
+#include "nlua_var.h"
 #include "nstring.h"
+#include "ntime.h"
+#include "nxml.h"
+#include "opengl.h"
+#include "pause.h"
+#include "perlin.h"
+#include "pilot.h"
+#include "player_gui.h"
+#include "rng.h"
+#include "shiplog.h"
+#include "sound.h"
+#include "space.h"
+#include "spfx.h"
+#include "start.h"
+#include "toolkit.h"
+#include "unidiff.h"
 
 
 /*
@@ -68,7 +71,7 @@
 Player_t player; /**< Local player. */
 static Ship* player_ship      = NULL; /**< Temporary ship to hold when naming it */
 static credits_t player_creds = 0; /**< Temporary hack for when creating. */
-static const char *player_message_noland = NULL; /**< No landing message (when PLAYER_NOLAND is set). */
+static char *player_message_noland = NULL; /**< No landing message (when PLAYER_NOLAND is set). */
 
 /*
  * Licenses.
@@ -162,7 +165,7 @@ extern int map_npath;
  */
 static void player_checkHail (void);
 /* creation */
-static void player_newSetup( int tutorial );
+static void player_newSetup();
 static int player_newMake (void);
 static Pilot* player_newShipMake( const char* name );
 /* sound */
@@ -170,14 +173,13 @@ static void player_initSound (void);
 /* save/load */
 static int player_saveEscorts( xmlTextWriterPtr writer );
 static int player_saveShipSlot( xmlTextWriterPtr writer, PilotOutfitSlot *slot, int i );
-static int player_saveShip( xmlTextWriterPtr writer,
-      Pilot* ship, char* loc );
+static int player_saveShip( xmlTextWriterPtr writer, Pilot* ship );
 static Planet* player_parse( xmlNodePtr parent );
 static int player_parseDoneMissions( xmlNodePtr parent );
 static int player_parseDoneEvents( xmlNodePtr parent );
 static int player_parseLicenses( xmlNodePtr parent );
 static void player_parseShipSlot( xmlNodePtr node, Pilot *ship, PilotOutfitSlot *slot );
-static int player_parseShip( xmlNodePtr parent, int is_player, char *planet );
+static int player_parseShip( xmlNodePtr parent, int is_player );
 static int player_parseEscorts( xmlNodePtr parent );
 static void player_addOutfitToPilot( Pilot* pilot, Outfit* outfit, PilotOutfitSlot *s );
 /* Misc. */
@@ -205,7 +207,7 @@ int player_init (void)
 /**
  * @brief Sets up a new player.
  */
-static void player_newSetup( int tutorial )
+static void player_newSetup()
 {
    double x, y;
 
@@ -220,92 +222,14 @@ static void player_newSetup( int tutorial )
 
    /* For pretty background. */
    pilots_cleanAll();
-   if (!tutorial) {
-      space_init( start_system() );
-      start_position( &x, &y );
-   }
-   else
-      start_tutPosition( &x, &y );
+   space_init( start_system() );
+   start_position( &x, &y );
 
    cam_setTargetPos( x, y, 0 );
    cam_setZoom( conf.zoom_far );
 
    /* Clear the init message for new game. */
    gui_clearMessages();
-}
-
-
-/**
- * @brief Creates a new tutorial player.
- *
- *   - Cleans up after old players.
- *   - Prompts for name.
- */
-void player_newTutorial (void)
-{
-   int ret;
-   double x, y;
-
-   /* Set up new player. */
-   player_newSetup( 1 );
-
-   /* New name. */
-   player.name = strdup( "John Doe" );
-
-   /* Time. */
-   ntime_set( start_date() );
-
-   /* Welcome message - must be before space_init. */
-   player_message( "\egWelcome to "APPNAME" Tutorial!" );
-   player_message( "\eg v%s", naev_version(0) );
-
-   /* Try to create the pilot, if fails reask for player name. */
-   player_ship = ship_get( start_ship() );
-   if (player_ship==NULL) {
-      WARN("Ship not properly set by module.");
-      return;
-   }
-   player_creds   = 0;
-   player_newShipMake( "Star Voyager" );
-   start_tutPosition( &x, &y );
-   vect_cset( &player.p->solid->pos, x, y );
-   vectnull( &player.p->solid->vel );
-   player.p->solid->dir = RNGF() * 2.*M_PI;
-   space_init( start_tutSystem() );
-
-   /* Monies. */
-   player.p->credits = start_credits();
-
-   /* clear the map */
-   map_clear();
-
-   /* Start the economy. */
-   economy_init();
-
-   /* Start the news */
-   news_init();
-
-   /* Play music. */
-   music_choose( "ambient" );
-
-   /* Load the GUI. */
-   gui_load( gui_pick() );
-
-   /* It's the tutorial. */
-   player_setFlag( PLAYER_TUTORIAL );
-
-   /* Add the mission if found. */
-   if (start_tutMission() != NULL) {
-      ret = mission_start(start_tutMission(), NULL);
-      if (ret < 0)
-         WARN("Failed to run start tutorial mission '%s'.", start_tutMission());
-   }
-
-   /* Add the event if found. */
-   if (!menu_isOpen(MENU_MAIN) && (start_tutEvent() != NULL)) {
-      if (event_start( start_tutEvent(), NULL ))
-         WARN("Failed to run start event '%s'.", start_tutEvent());
-   }
 }
 
 
@@ -320,13 +244,19 @@ void player_newTutorial (void)
 void player_new (void)
 {
    int r;
+   char *title, *caption, *ret, buf[PATH_MAX];
+
+   const char *speed_opts[] = {
+      _("Normal Speed"),
+      _("Slow Speed")
+   };
 
    /* Set up new player. */
-   player_newSetup( 0 );
+   player_newSetup();
 
    /* Get the name. */
-   player.name = dialogue_input( "Player Name", 2, 20,
-         "Please write your name:" );
+   player.name = dialogue_input( _("Player Name"), 1, 60,
+         _("Please write your name:") );
 
    /* Player cancelled dialogue. */
    if (player.name == NULL) {
@@ -334,20 +264,41 @@ void player_new (void)
       return;
    }
 
-   if (nfile_fileExists("%ssaves/%s.ns", nfile_dataPath(), player.name)) {
-      r = dialogue_YesNo("Overwrite",
-            "You already have a pilot named %s. Overwrite?",player.name);
+   nsnprintf( buf, sizeof(buf), "%ssaves/%s.ns", nfile_dataPath(), player.name);
+   if (nfile_fileExists(buf)) {
+      r = dialogue_YesNo(_("Overwrite"),
+            _("You already have a pilot named %s. Overwrite?"),player.name);
       if (r==0) { /* no */
          player_new();
          return;
       }
    }
 
+   /* Set game speed. */
+   title = _("Game Speed");
+   caption = _("Your game can be set to normal speed or slow speed. Slow speed"
+         " causes time in space to pass at half the rate it would in normal"
+         " speed, which may be helpful if you have difficulty playing the game"
+         " at normal speed. Would you like to use normal speed or slow speed"
+         " for this profile? (If unsure, normal speed is probably what you"
+         " want.)");
+
+   dialogue_makeChoice( title, caption, 2 );
+   dialogue_addChoice( title, caption, speed_opts[0] );
+   dialogue_addChoice( title, caption, speed_opts[1] );
+   ret = dialogue_runChoice();
+   player.dt_mod = 1.;
+   if (ret != NULL) {
+      if (strcmp(ret, speed_opts[1]) == 0)
+         player.dt_mod = 0.5;
+      free( ret );
+   }
+
    if (player_newMake())
       return;
 
    /* Display the intro. */
-   intro_display( "dat/intro", "intro" );
+   intro_display( INTRO_PATH, "intro" );
 
    /* Play music. */
    music_choose( "ambient" );
@@ -355,13 +306,13 @@ void player_new (void)
    /* Add the mission if found. */
    if (start_mission() != NULL) {
       if (mission_start(start_mission(), NULL) < 0)
-         WARN("Failed to run start mission '%s'.", start_mission());
+         WARN(_("Failed to run start mission '%s'."), start_mission());
    }
 
    /* Add the event if found. */
    if (start_event() != NULL) {
       if (event_start( start_event(), NULL ))
-         WARN("Failed to run start event '%s'.", start_event());
+         WARN(_("Failed to run start event '%s'."), start_event());
    }
 
    /* Run the load event trigger. */
@@ -385,16 +336,17 @@ static int player_newMake (void)
 
    /* Time. */
    ntime_set( start_date() );
-
+   /* Clear known economy info */
+   economy_clearKnown();
    /* Welcome message - must be before space_init. */
-   player_message( "\egWelcome to "APPNAME"!" );
-   player_message( "\eg v%s", naev_version(0) );
+   player_message( _("\agWelcome to %s!"), APPNAME );
+   player_message( "\ag v%s", naev_version(0) );
 
    /* Try to create the pilot, if fails reask for player name. */
    ship = ship_get( start_ship() );
    shipname = start_shipname();
    if (ship==NULL) {
-      WARN("Ship not properly set by module.");
+      WARN(_("Ship not properly set by module."));
       return -1;
    }
    /* Setting a default name in the XML prevents naming prompt. */
@@ -408,6 +360,12 @@ static int player_newMake (void)
    player.p->solid->dir = RNGF() * 2.*M_PI;
    space_init( start_system() );
 
+   /* Set player speed to default 1 */
+   player.speed = 1.;
+
+   /* Reset speed (to make sure player.dt_mod is accounted for). */
+   player_autonavResetSpeed();
+
    /* Monies. */
    player.p->credits = start_credits();
 
@@ -416,6 +374,9 @@ static int player_newMake (void)
 
    /* Start the economy. */
    economy_init();
+
+   /* clear the shiplog*/
+   shiplog_clear();
 
    /* Start the news */
    news_init();
@@ -446,8 +407,8 @@ Pilot* player_newShip( Ship* ship, const char *def_name,
    player_creds = (player.p != NULL) ? player.p->credits : 0;
    player_ship    = ship;
    if (!noname)
-      ship_name      = dialogue_input( "Ship Name", 3, 20,
-            "Please name your new ship:" );
+      ship_name      = dialogue_input( _("Ship Name"), 1, 60,
+            _("Please name your new ship:") );
    else
       ship_name      = NULL;
 
@@ -461,7 +422,7 @@ Pilot* player_newShip( Ship* ship, const char *def_name,
       i = 2;
       len = strlen(def_name)+10;
       ship_name = malloc( len );
-      strncpy( ship_name, def_name, len );
+      strcpy( ship_name, def_name );
       while (player_hasShip(ship_name)) {
          nsnprintf( ship_name, len, "%s %d", def_name, i );
          i++;
@@ -470,8 +431,9 @@ Pilot* player_newShip( Ship* ship, const char *def_name,
 
    /* Must not have same name. */
    if (player_hasShip(ship_name)) {
-      dialogue_msg( "Name collision",
-            "Please do not give the ship the same name as another of your ships.");
+      dialogue_msg( _("Name collision"),
+            _("Please do not give the ship the same name as another of your ships."));
+      free( ship_name );
       return NULL;
    }
 
@@ -480,7 +442,7 @@ Pilot* player_newShip( Ship* ship, const char *def_name,
    /* Player is trading ship in. */
    if (trade) {
       if (player.p == NULL)
-         ERR("Player ship isn't valid... This shouldn't happen!");
+         ERR(_("Player ship isn't valid... This shouldn't happen!"));
       old_name = player.p->name;
       player_swapShip( ship_name ); /* Move to the new ship. */
       player_rmShip( old_name );
@@ -534,7 +496,7 @@ static Pilot* player_newShipMake( const char* name )
 
       /* Create the player. */
       id = pilot_create( player_ship, name, faction_get("Player"), "player",
-            dir, &vp, &vv, flags, -1 );
+            dir, &vp, &vv, flags, 0, 0 );
       cam_setTargetPilot( id, 0 );
       new_pilot = pilot_get( id );
    }
@@ -544,13 +506,12 @@ static Pilot* player_newShipMake( const char* name )
       ship        = &player_stack[player_nstack];
       /* Create the ship. */
       ship->p     = pilot_createEmpty( player_ship, name, faction_get("Player"), "player", flags );
-      ship->loc   = strdup( land_planet->name );
       player_nstack++;
       new_pilot   = ship->p;
    }
 
    if (player.p == NULL)
-      ERR("Something seriously wonky went on, newly created player does not exist, bailing!");
+      ERR(_("Something seriously wonky went on, newly created player does not exist, bailing!"));
 
    /* Add GUI. */
    player_guiAdd( player_ship->gui );
@@ -568,7 +529,7 @@ static Pilot* player_newShipMake( const char* name )
  *
  *    @param shipname Ship to change to.
  */
-void player_swapShip( char* shipname )
+void player_swapShip( const char *shipname )
 {
    int i, j;
    Pilot* ship;
@@ -587,6 +548,13 @@ void player_swapShip( char* shipname )
 
       /* move cargo over */
       pilot_cargoMove( ship, player.p );
+
+      /* Copy target info */
+      ship->target = player.p->target;
+      ship->nav_planet = player.p->nav_planet;
+      ship->nav_hyperspace = player.p->nav_hyperspace;
+      ship->nav_anchor = player.p->nav_anchor;
+      ship->nav_asteroid = player.p->nav_asteroid;
 
       /* Store position. */
       v = player.p->solid->pos;
@@ -620,7 +588,7 @@ void player_swapShip( char* shipname )
       cam_setTargetPilot( player.p->id, 0 );
       return;
    }
-   WARN( "Unable to swap player.p with ship '%s': ship does not exist!", shipname );
+   WARN( _("Unable to swap player.p with ship '%s': ship does not exist!"), shipname );
 }
 
 
@@ -630,7 +598,7 @@ void player_swapShip( char* shipname )
  *    @param shipname Name of the ship.
  *    @return The price of the ship in credits.
  */
-credits_t player_shipPrice( char* shipname )
+credits_t player_shipPrice( const char *shipname )
 {
    int i;
    Pilot *ship = NULL;
@@ -649,7 +617,7 @@ credits_t player_shipPrice( char* shipname )
 
    /* Not found. */
    if (ship == NULL) {
-      WARN( "Unable to find price for player's ship '%s': ship does not exist!", shipname );
+      WARN( _("Unable to find price for player's ship '%s': ship does not exist!"), shipname );
       return -1;
    }
 
@@ -662,7 +630,7 @@ credits_t player_shipPrice( char* shipname )
  *
  *    @param shipname Name of the ship to remove.
  */
-void player_rmShip( char* shipname )
+void player_rmShip( const char *shipname )
 {
    int i, w;
 
@@ -671,9 +639,8 @@ void player_rmShip( char* shipname )
       if (strcmp(shipname,player_stack[i].p->name)!=0)
          continue;
 
-      /* Free player ship and location. */
+      /* Free player ship. */
       pilot_free(player_stack[i].p);
-      free(player_stack[i].loc);
 
       /* Move memory to make adjacent. */
       memmove( player_stack+i, player_stack+i+1,
@@ -729,11 +696,11 @@ void player_cleanup (void)
    /* Reset factions. */
    factions_reset();
 
-   /* clean up name */
-   if (player.name != NULL) {
-      free(player.name);
-      player.name = NULL;
-   }
+   free(player.name);
+   player.name = NULL;
+
+   free(player_message_noland);
+   player_message_noland = NULL;
 
    /* Clean up gui. */
    gui_cleanup();
@@ -743,31 +710,23 @@ void player_cleanup (void)
    /* clean up the stack */
    for (i=0; i<player_nstack; i++) {
       pilot_free(player_stack[i].p);
-      free(player_stack[i].loc);
    }
-   if (player_stack != NULL)
-      free(player_stack);
+   free(player_stack);
    player_stack = NULL;
    /* nothing left */
    player_nstack = 0;
 
-   /* Free outfits. */
-   if (player_outfits != NULL)
-      free(player_outfits);
+   free(player_outfits);
    player_outfits  = NULL;
    player_noutfits = 0;
    player_moutfits = 0;
 
-   /* Clean up missions */
-   if (missions_done != NULL)
-      free(missions_done);
+   free(missions_done);
    missions_done = NULL;
    missions_ndone = 0;
    missions_mdone = 0;
 
-   /* Clean up events. */
-   if (events_done != NULL)
-      free(events_done);
+   free(events_done);
    events_done = NULL;
    events_ndone = 0;
    events_mdone = 0;
@@ -790,8 +749,7 @@ void player_cleanup (void)
    /* Reset some player stuff. */
    player_creds   = 0;
    player.crating = 0;
-   if (player.gui != NULL)
-      free( player.gui );
+   free( player.gui );
    player.gui = NULL;
 
    /* Clear omsg. */
@@ -801,7 +759,11 @@ void player_cleanup (void)
    sound_stopAll();
 
    /* Reset time compression. */
-   pause_setSpeed( 1.0 );
+   pause_setSpeed( 1. );
+   sound_setSpeed( 1. );
+
+   free( player.loaded_version );
+   player.loaded_version = NULL;
 
    /* Clean up. */
    memset( &player, 0, sizeof(Player_t) );
@@ -929,19 +891,18 @@ void player_clear (void)
    player_rmFlag( PLAYER_NOLAND );
 }
 
-
 static char* player_ratings[] = {
-      "Harmless",
-      "Mostly Harmless",
-      "Smallfry",
-      "Average",
-      "Above Average",
-      "Major",
-      "Intimidating",
-      "Fearsome",
-      "Terrifying",
-      "Unstoppable",
-      "Godlike"
+      gettext_noop("Harmless"),
+      gettext_noop("Mostly Harmless"),
+      gettext_noop("Smallfry"),
+      gettext_noop("Average"),
+      gettext_noop("Above Average"),
+      gettext_noop("Major"),
+      gettext_noop("Intimidating"),
+      gettext_noop("Fearsome"),
+      gettext_noop("Terrifying"),
+      gettext_noop("Unstoppable"),
+      gettext_noop("Godlike")
 }; /**< Combat ratings. */
 /**
  * @brief Gets the player's combat rating in a human-readable string.
@@ -950,17 +911,17 @@ static char* player_ratings[] = {
  */
 const char* player_rating (void)
 {
-   if (player.crating == 0.) return player_ratings[0];
-   else if (player.crating < 25.) return player_ratings[1];
-   else if (player.crating < 50.) return player_ratings[2];
-   else if (player.crating < 100.) return player_ratings[3];
-   else if (player.crating < 200.) return player_ratings[4];
-   else if (player.crating < 500.) return player_ratings[5];
-   else if (player.crating < 1000.) return player_ratings[6];
-   else if (player.crating < 2000.) return player_ratings[7];
-   else if (player.crating < 5000.) return player_ratings[8];
-   else if (player.crating < 10000.) return player_ratings[9];
-   else return player_ratings[10];
+   if (player.crating == 0.) return _(player_ratings[0]);
+   else if (player.crating < 25.) return _(player_ratings[1]);
+   else if (player.crating < 50.) return _(player_ratings[2]);
+   else if (player.crating < 100.) return _(player_ratings[3]);
+   else if (player.crating < 200.) return _(player_ratings[4]);
+   else if (player.crating < 500.) return _(player_ratings[5]);
+   else if (player.crating < 1000.) return _(player_ratings[6]);
+   else if (player.crating < 2000.) return _(player_ratings[7]);
+   else if (player.crating < 5000.) return _(player_ratings[8]);
+   else if (player.crating < 10000.) return _(player_ratings[9]);
+   else return _(player_ratings[10]);
 }
 
 
@@ -984,6 +945,11 @@ int player_hasCredits( credits_t amount )
  */
 credits_t player_modCredits( credits_t amount )
 {
+   HookParam p[2];
+   p[0].type = HOOK_PARAM_NUMBER;
+   p[0].u.num = (double)amount;
+   p[1].type = HOOK_PARAM_SENTINEL;
+   hooks_runParam( "pay", p );
    return pilot_modCredits( player.p, amount );
 }
 
@@ -993,6 +959,10 @@ credits_t player_modCredits( credits_t amount )
  */
 void player_render( double dt )
 {
+   double a, b, d, x1, y1, x2, y2, r, theta;
+   glColour c;
+   Pilot *target;
+
    /*
     * Check to see if the death menu should pop up.
     */
@@ -1007,8 +977,64 @@ void player_render( double dt )
     * Render the player.
     */
    if ((player.p != NULL) && !player_isFlag(PLAYER_CREATING) &&
-         !pilot_isFlag( player.p, PILOT_INVISIBLE))
+         !pilot_isFlag( player.p, PILOT_INVISIBLE)) {
+
+      /* Render the aiming lines. */
+      if ((player.p->target != PLAYER_ID) && player.p->aimLines) {
+         target = pilot_get(player.p->target);
+         if (target != NULL) {
+            a = player.p->solid->dir;
+            r = 200.;
+            gl_gameToScreenCoords( &x1, &y1, player.p->solid->pos.x, player.p->solid->pos.y );
+
+            b = pilot_aimAngle( player.p, target );
+
+            theta = 22*M_PI/180;
+
+            /* The angular error will give the exact colour that is used. */
+            d = ABS( angle_diff(a,b) / (2*theta) );
+            d = MIN( 1, d );
+
+            c = cInert;
+            c.a = .3;
+            gl_gameToScreenCoords( &x2, &y2, player.p->solid->pos.x + r*cos( a+theta ),
+                                   player.p->solid->pos.y + r*sin( a+theta ) );
+            gl_drawLine( x1, y1, x2, y2, &c );
+            gl_gameToScreenCoords( &x2, &y2, player.p->solid->pos.x + r*cos( a-theta ),
+                                   player.p->solid->pos.y + r*sin( a-theta ) );
+            gl_drawLine( x1, y1, x2, y2, &c );
+
+            c.r = d*.9;
+            c.g = d*.2 + (1-d)*.8;
+            c.b = (1-d)*.2;
+            c.a = 0.9;
+            gl_gameToScreenCoords( &x2, &y2, player.p->solid->pos.x + r*cos( a ),
+                                   player.p->solid->pos.y + r*sin( a ) );
+
+            gl_drawLine( x1, y1, x2, y2, &c );
+
+            gl_renderCross( x2 - 1, y2 - 1, 6., &cBlack );
+            gl_renderCross( x2 - 1, y2 + 1, 6., &cBlack );
+            gl_renderCross( x2 + 1, y2 - 1, 6., &cBlack );
+            gl_renderCross( x2 + 1, y2 + 1, 6., &cBlack );
+            gl_renderCross( x2, y2, 7., &cBlack );
+            gl_renderCross( x2, y2, 6., &cWhite );
+
+            gl_gameToScreenCoords( &x2, &y2, player.p->solid->pos.x + r*cos( b ),
+                                   player.p->solid->pos.y + r*sin( b ) );
+
+            c.a = .4;
+            gl_drawLine( x1, y1, x2, y2, &c );
+
+            gl_drawCircle( x2, y2, 8., &cBlack, 0 );
+            gl_drawCircle( x2, y2, 10., &cBlack, 0 );
+            gl_drawCircle( x2, y2, 9., &cWhite, 0 );
+         }
+      }
+
+      /* Render the player's pilot. */
       pilot_render(player.p, dt);
+   }
 }
 
 
@@ -1016,11 +1042,13 @@ void player_render( double dt )
  * @brief Basically uses keyboard input instead of AI input. Used in pilot.c.
  *
  *    @param pplayer Player to think.
+ *    @param dt Current delta tick.
  */
 void player_think( Pilot* pplayer, const double dt )
 {
-   (void) dt;
    Pilot *target;
+   AsteroidAnchor *field;
+   Asteroid *ast;
    double turn;
    int facing, fired;
 
@@ -1066,6 +1094,15 @@ void player_think( Pilot* pplayer, const double dt )
             facing = 1;
          }
       }
+      /* Try to face asteroid. */
+      else if (player.p->nav_asteroid != -1) {
+         field = &cur_system->asteroids[player.p->nav_anchor];
+         ast = &field->asteroids[player.p->nav_asteroid];
+         pilot_face( pplayer,
+               vect_angle( &player.p->solid->pos, &ast->pos ));
+         /* Disable turning. */
+         facing = 1;
+      }
       /* If not try to face planet target. */
       else if ((player.p->nav_planet != -1) && ((preemption == 0) || (player.p->nav_hyperspace == -1))) {
          pilot_face( pplayer,
@@ -1103,7 +1140,7 @@ void player_think( Pilot* pplayer, const double dt )
        */
       if (player.p->stats.misc_reverse_thrust)
          player_accel( -PILOT_REVERSE_THRUST );
-      else if (!facing){
+      else if (!facing) {
          pilot_face( pplayer, VANGLE(player.p->solid->vel) + M_PI );
          /* Disable turning. */
          facing = 1;
@@ -1158,7 +1195,7 @@ void player_think( Pilot* pplayer, const double dt )
  * @brief Player update function.
  *
  *    @param pplayer Player to update.
- *    @param dt Current deltatick.
+ *    @param dt Current delta tick.
  */
 void player_update( Pilot *pplayer, const double dt )
 {
@@ -1175,7 +1212,7 @@ void player_update( Pilot *pplayer, const double dt )
  * @brief Does a player specific update.
  *
  *    @param pplayer Player to update.
- *    @param dt Current deltatick.
+ *    @param dt Current delta tick.
  */
 void player_updateSpecific( Pilot *pplayer, const double dt )
 {
@@ -1227,24 +1264,36 @@ void player_updateSpecific( Pilot *pplayer, const double dt )
 /**
  * @brief Activates a player's weapon set.
  */
-void player_weapSetPress( int id, int type, int repeat )
+void player_weapSetPress( int id, double value, int repeat )
 {
+   int type;
+
    if (repeat)
       return;
 
-   if ((type > 0) && ((player.p == NULL) || toolkit_isOpen()))
+   type = (value>=0) ? +1 : -1;
+
+   if ((type>0) && ((player.p == NULL) || toolkit_isOpen()))
       return;
 
-   if (player.p == NULL)
-      return;
-
-   if (pilot_isFlag(player.p, PILOT_HYP_PREP) ||
+   if ((type>0) && (pilot_isFlag(player.p, PILOT_HYP_PREP) ||
          pilot_isFlag(player.p, PILOT_HYPERSPACE) ||
          pilot_isFlag(player.p, PILOT_LANDING) ||
-         pilot_isFlag(player.p, PILOT_TAKEOFF))
+         pilot_isFlag(player.p, PILOT_TAKEOFF)))
       return;
 
    pilot_weapSetPress( player.p, id, type );
+}
+
+
+/**
+ * @brief Resets the player speed stuff.
+ */
+void player_resetSpeed (void)
+{
+   double spd = player.speed * player_dt_default();
+   pause_setSpeed( spd );
+   sound_setSpeed( spd );
 }
 
 
@@ -1268,8 +1317,10 @@ void player_restoreControl( int reason, char *str )
    if (reason != PINPUT_BRAKING) {
       pilot_rmFlag(player.p, PILOT_BRAKING);
       pilot_rmFlag(player.p, PILOT_COOLDOWN_BRAKE);
-      if (pilot_isFlag(player.p, PILOT_COOLDOWN))
+      if (pilot_isFlag(player.p, PILOT_COOLDOWN)) {
+         gui_cooldownEnd();
          pilot_cooldownEnd(player.p, str);
+      }
    }
 }
 
@@ -1284,7 +1335,7 @@ void player_targetPlanetSet( int id )
    int old;
 
    if (id >= cur_system->nplanets) {
-      WARN("Trying to set player's planet target to invalid ID '%d'", id);
+      WARN(_("Trying to set player's planet target to invalid ID '%d'"), id);
       return;
    }
 
@@ -1301,6 +1352,52 @@ void player_targetPlanetSet( int id )
    }
    gui_forceBlink();
    gui_setNav();
+}
+
+
+/**
+ * @brief Sets the player's target asteroid.
+ *
+ *    @param field Index of the parent field of the asteoid.
+ *    @param id Target planet or -1 if none should be selected.
+ */
+void player_targetAsteroidSet( int field, int id )
+{
+   int old, i;
+   AsteroidAnchor *anchor;
+   Asteroid *ast;
+   AsteroidType *at;
+   Commodity *com;
+
+   if ((player.p == NULL) || pilot_isFlag( player.p, PILOT_LANDING ))
+      return;
+
+   old = player.p->nav_asteroid;
+   player.p->nav_asteroid = id;
+   if (old != id) {
+      if (id >= 0) {
+         player_soundPlayGUI(snd_nav, 1);
+
+         /* See if the player has the asteroid scanner. */
+         if (player.p->stats.misc_asteroid_scan) {
+            /* Recover and display some info about the asteroid. */
+            anchor = &cur_system->asteroids[field];
+            ast = &anchor->asteroids[id];
+            at = space_getType( ast->type );
+
+            player_message( _("Asteroid targeted, composition: ") );
+            for (i=0; i<at->nmaterial; i++) {
+              com = at->material[i];
+              player_message( _("%s, quantity: %i"), _(com->name), at->quantity[i] );
+            }
+            ast->scanned = 1;
+         }
+         else
+            player_message( _("Asteroid targeted") );
+      }
+   }
+
+   player.p->nav_anchor = field;
 }
 
 
@@ -1364,7 +1461,7 @@ void player_land (void)
 
    /* Check if there are planets to land on. */
    if (cur_system->nplanets == 0) {
-      player_messageRaw( "\erThere are no planets to land on." );
+      player_messageRaw( _("\arThere are no planets to land on.") );
       return;
    }
 
@@ -1397,50 +1494,51 @@ void player_land (void)
    }
 
    if (player_isFlag(PLAYER_NOLAND)) {
-      player_message( "\er%s", player_message_noland );
+      player_message( "\ar%s", player_message_noland );
       return;
    }
    else if (pilot_isFlag( player.p, PILOT_NOLAND)) {
-      player_message( "\erDocking stabilizers malfunctioning, cannot land." );
+      player_message( _("\arDocking stabilizers malfunctioning, cannot land.") );
       return;
    }
 
    /* attempt to land at selected planet */
    planet = cur_system->planets[player.p->nav_planet];
    if (!planet_hasService(planet, PLANET_SERVICE_LAND)) {
-      player_messageRaw( "\erYou can't land here." );
+      player_messageRaw( _("\arYou can't land here.") );
       return;
    }
    else if (!player_isFlag(PLAYER_LANDACK)) { /* no landing authorization */
       if (planet_hasService(planet,PLANET_SERVICE_INHABITED)) { /* Basic services */
          if (planet->can_land || (planet->land_override > 0))
-            player_message( "\e%c%s>\e0 %s", planet_getColourChar(planet),
-                  planet->name, planet->land_msg );
+            player_message( "\a%c%s>\a0 %s", planet_getColourChar(planet),
+                  _(planet->name), planet->land_msg );
          else if (planet->bribed && (planet->land_override >= 0))
-            player_message( "\e%c%s>\e0 %s", planet_getColourChar(planet),
-                  planet->name, planet->bribe_ack_msg );
+            player_message( "\a%c%s>\a0 %s", planet_getColourChar(planet),
+                  _(planet->name), planet->bribe_ack_msg );
          else { /* Hostile */
-            player_message( "\e%c%s>\e0 %s", planet_getColourChar(planet),
-                  planet->name, planet->land_msg );
+            player_message( "\a%c%s>\a0 %s", planet_getColourChar(planet),
+                  _(planet->name), planet->land_msg );
             return;
          }
       }
       else /* No shoes, no shirt, no lifeforms, no service. */
-         player_message( "\epReady to land on %s.", planet->name );
+         player_message( _("\aoReady to land on %s."), _(planet->name) );
 
       player_setFlag(PLAYER_LANDACK);
       if (!silent)
          player_soundPlayGUI(snd_nav, 1);
 
+      player_land();
       return;
    }
    else if (vect_dist2(&player.p->solid->pos,&planet->pos) > pow2(planet->radius)) {
-      player_message("\erYou are too far away to land on %s.", planet->name);
+      player_message(_("\arYou are too far away to land on %s."), _(planet->name));
       return;
    }
    else if ((pow2(VX(player.p->solid->vel)) + pow2(VY(player.p->solid->vel))) >
          (double)pow2(MAX_HYPERSPACE_VEL)) {
-      player_message("\erYou are going too fast to land on %s.", planet->name);
+      player_message(_("\arYou are going too fast to land on %s."), _(planet->name));
       return;
    }
 
@@ -1458,7 +1556,8 @@ void player_land (void)
 
    /* Start landing. */
    player_soundPause();
-   player.p->ptimer = PILOT_LANDING_DELAY;
+   player.p->landing_delay = PILOT_LANDING_DELAY * player_dt_default();
+   player.p->ptimer = player.p->landing_delay;
    pilot_setFlag( player.p, PILOT_LANDING );
    pilot_setThrust( player.p, 0. );
    pilot_setTurn( player.p, 0. );
@@ -1478,7 +1577,7 @@ void player_checkLandAck( void )
 
    /* Avoid a potential crash if PLAYER_LANDACK is set inappropriately. */
    if (player.p->nav_planet < 0) {
-      WARN("Player has landing permission, but no valid planet targeted.");
+      WARN(_("Player has landing permission, but no valid planet targeted."));
       return;
    }
 
@@ -1489,8 +1588,8 @@ void player_checkLandAck( void )
       return;
 
    player_rmFlag(PLAYER_LANDACK);
-   player_message( "\e%c%s>\e0 Landing permission revoked.",
-         planet_getColourChar(p), p->name );
+   player_message( _("\a%c%s>\a0 Landing permission revoked."),
+         planet_getColourChar(p), _(p->name) );
 }
 
 
@@ -1510,10 +1609,13 @@ int player_canTakeoff(void)
  */
 void player_nolandMsg( const char *str )
 {
+   free(player_message_noland);
+
+   /* Duplicate so that Lua memory which might be garbage-collected isn't relied on. */
    if (str != NULL)
-      player_message_noland = str;
+      player_message_noland = strdup(str);
    else
-      player_message_noland = "You are not allowed to land at this moment.";
+      player_message_noland = strdup(_("You are not allowed to land at this moment."));
 }
 
 
@@ -1527,7 +1629,7 @@ void player_targetHyperspaceSet( int id )
    int old;
 
    if (id >= cur_system->njumps) {
-      WARN("Trying to set player's hyperspace target to invalid ID '%d'", id);
+      WARN(_("Trying to set player's hyperspace target to invalid ID '%d'"), id);
       return;
    }
 
@@ -1606,14 +1708,34 @@ int player_getHypPreempt(void)
 
 
 /**
+ * @brief Returns the player's total default time delta based on dt_mod and ship's dt_default.
+ *
+ *    @return The default/minimum time delta
+ */
+double player_dt_default (void)
+{
+   if (player.p != NULL && player.p->ship != NULL)
+      return player.p->ship->dt_default * player.dt_mod;
+
+   return player.dt_mod;
+}
+
+
+/**
  * @brief Starts the hail sounds and aborts autoNav
  */
 void player_hailStart (void)
 {
+   char msg[STRMAX_SHORT];
+   char buf[128];
+
    player_hailCounter = 5;
 
-   /* Abort autonav. */
-   player_messageRaw("\erReceiving hail!");
+   input_getKeybindDisplay( "autohail", buf, sizeof(buf) );
+   nsnprintf( msg, sizeof(msg), _("\arReceiving hail! Press %s to respond."), buf );
+   player_messageRaw( msg );
+
+   /* Reset speed. */
    player_autonavResetSpeed();
    player.autonav_timer = MAX( player.autonav_timer, 10. );
 }
@@ -1665,25 +1787,29 @@ int player_jump (void)
    /* Already jumping, so we break jump. */
    if (pilot_isFlag(player.p, PILOT_HYP_PREP)) {
       pilot_hyperspaceAbort(player.p);
-      player_message("\erAborting hyperspace sequence.");
+      player_message(_("\arAborting hyperspace sequence."));
       return 0;
    }
 
    /* Try to hyperspace. */
    i = space_hyperspace(player.p);
    if (i == -1)
-      player_message("\erYou are too far from a jump point to initiate hyperspace.");
+      player_message(_("\arYou are too far from a jump point to initiate hyperspace."));
    else if (i == -2)
-      player_message("\erHyperspace drive is offline.");
+      player_message(_("\arHyperspace drive is offline."));
    else if (i == -3)
-      player_message("\erYou do not have enough fuel to hyperspace jump.");
+      player_message(_("\arYou do not have enough fuel to hyperspace jump."));
    else {
-      player_message("\epPreparing for hyperspace.");
+      player_message(_("\aoPreparing for hyperspace."));
       /* Stop acceleration noise. */
       player_accelOver();
       /* Stop possible shooting. */
       pilot_shootStop( player.p, 0 );
       pilot_shootStop( player.p, 1 );
+
+      /* Order escorts to jump; just for aesthetics (for now) */
+      escorts_jump( player.p, &cur_system->jumps[player.p->nav_hyperspace] );
+
       return 1;
    }
    return 0;
@@ -1697,6 +1823,7 @@ void player_brokeHyperspace (void)
    ntime_t t;
    StarSystem *sys;
    JumpPoint *jp;
+   int i;
 
    /* First run jump hook. */
    hooks_run( "jumpout" );
@@ -1705,6 +1832,7 @@ void player_brokeHyperspace (void)
    gui_setNav();
    gui_setTarget();
    player_targetPlanetSet( -1 );
+   player_targetAsteroidSet( -1, -1 );
 
    /* calculates the time it takes, call before space_init */
    t  = pilot_hyperspaceDelay( player.p );
@@ -1736,18 +1864,27 @@ void player_brokeHyperspace (void)
    /* Update the map */
    map_jump();
 
-   /* Add the escorts. */
-   player_addEscorts();
+   /* Add persisted pilots */
+   for (i=0; i<pilot_nstack; i++) {
+      if ((pilot_stack[i] != player.p) &&
+            (pilot_isFlag(pilot_stack[i], PILOT_PERSIST))) {
+         space_calcJumpInPos( cur_system, sys, &pilot_stack[i]->solid->pos, &pilot_stack[i]->solid->vel, &pilot_stack[i]->solid->dir );
+         ai_cleartasks(pilot_stack[i]);
+      }
+   }
 
    /* Disable autonavigation if arrived. */
    if (player_isFlag(PLAYER_AUTONAV)) {
       if (player.p->nav_hyperspace == -1) {
-         player_message( "\epAutonav arrived at the %s system.", cur_system->name);
+         player_message( _("\aoAutonav arrived at the %s system."), _(cur_system->name) );
          player_autonavEnd();
       }
       else {
-         player_message( "\epAutonav continuing until destination (%d jump%s left).",
-               map_npath, (map_npath==1) ? "" : "s" );
+         player_message( ngettext(
+                  "\aoAutonav continuing until destination (%d jump left).",
+                  "\aoAutonav continuing until destination (%d jumps left).",
+                  map_npath),
+               map_npath );
       }
    }
 
@@ -1804,6 +1941,10 @@ void player_targetSet( unsigned int id )
       player_soundPlayGUI( snd_target, 1 );
    }
    gui_setTarget();
+
+   /* The player should not continue following if the target pilot has been changed. */
+   if (player_isFlag(PLAYER_AUTONAV) && player.autonav == AUTONAV_PLT_FOLLOW)
+      player_autonavAbort(NULL);
 }
 
 
@@ -1816,16 +1957,12 @@ void player_targetSet( unsigned int id )
 void player_targetHostile (void)
 {
    unsigned int tp;
-   int i;
    double d, td;
+   int inRange;
 
    tp = PLAYER_ID;
    d  = 0;
-   for (i=0; i<pilot_nstack; i++) {
-      /* Don't get if is bribed. */
-      if (pilot_isFlag(pilot_stack[i],PILOT_BRIBED))
-         continue;
-
+   for (int i=0; i<pilot_nstack; i++) {
       /* Shouldn't be disabled. */
       if (pilot_isDisabled(pilot_stack[i]))
          continue;
@@ -1834,10 +1971,10 @@ void player_targetHostile (void)
       if (!pilot_validTarget( player.p, pilot_stack[i] ))
          continue;
 
-      /* Normal unbribed check. */
+      /* Must be hostile. */
       if (pilot_isHostile(pilot_stack[i])) {
-         td = vect_dist2(&pilot_stack[i]->solid->pos, &player.p->solid->pos);
-         if ((tp==PLAYER_ID) || (td < d)) {
+         inRange = pilot_inRangePilot(player.p, pilot_stack[i], &td);
+         if (tp == PLAYER_ID || ((inRange == 1) && (td < d))) {
             d  = td;
             tp = pilot_stack[i]->id;
          }
@@ -1973,8 +2110,8 @@ void player_screenshot (void)
 {
    char filename[PATH_MAX];
 
-   if (nfile_dirMakeExist("%s", nfile_dataPath()) < 0 || nfile_dirMakeExist("%sscreenshots", nfile_dataPath()) < 0) {
-      WARN("Aborting screenshot");
+   if (nfile_dirMakeExist(nfile_dataPath()) < 0 || nfile_dirMakeExist(nfile_dataPath(), "screenshots") < 0) {
+      WARN(_("Aborting screenshot"));
       return;
    }
 
@@ -1987,12 +2124,12 @@ void player_screenshot (void)
    }
 
    if (screenshot_cur >= 999) { /* in case the crap system breaks :) */
-      WARN("You have reached the maximum amount of screenshots [999]");
+      WARN(_("You have reached the maximum amount of screenshots [999]"));
       return;
    }
 
    /* now proceed to take the screenshot */
-   DEBUG( "Taking screenshot [%03d]...", screenshot_cur );
+   DEBUG( _("Taking screenshot [%03d]..."), screenshot_cur );
    gl_screenshot(filename);
 }
 
@@ -2026,8 +2163,8 @@ static void player_checkHail (void)
  */
 static void player_planetOutOfRangeMsg (void)
 {
-   player_message( "\er%s is out of comm range, unable to contact.",
-         cur_system->planets[player.p->nav_planet]->name );
+   player_message( _("\ar%s is out of comm range, unable to contact."),
+         _(cur_system->planets[player.p->nav_planet]->name) );
 }
 
 
@@ -2043,14 +2180,14 @@ void player_hail (void)
 
    if (player.p->target != player.p->id)
       comm_openPilot(player.p->target);
-   else if(player.p->nav_planet != -1) {
+   else if (player.p->nav_planet != -1) {
       if (pilot_inRangePlanet( player.p, player.p->nav_planet ))
          comm_openPlanet( cur_system->planets[ player.p->nav_planet ] );
       else
          player_planetOutOfRangeMsg();
    }
    else
-      player_message("\erNo target selected to hail.");
+      player_message(_("\arNo target selected to hail."));
 
    /* Clear hails if none found. */
    player_checkHail();
@@ -2073,7 +2210,7 @@ void player_hailPlanet (void)
          player_planetOutOfRangeMsg();
    }
    else
-      player_message("\erNo target selected to hail.");
+      player_message(_("\arNo target selected to hail."));
 }
 
 
@@ -2101,7 +2238,7 @@ void player_autohail (void)
 
    /* Not found any. */
    if (i >= pilot_nstack) {
-      player_message("\erYou haven't been hailed by any pilots.");
+      player_message(_("\arYou haven't been hailed by any pilots."));
       return;
    }
 
@@ -2122,13 +2259,13 @@ void player_toggleMouseFly(void)
 {
    if (!player_isFlag(PLAYER_MFLY)) {
       input_mouseShow();
-      player_message("\epMouse flying enabled.");
+      player_message(_("\aoMouse flying enabled."));
       player_setFlag(PLAYER_MFLY);
    }
    else {
       input_mouseHide();
       player_rmFlag(PLAYER_MFLY);
-      player_message("\erMouse flying disabled.");
+      player_message(_("\arMouse flying disabled."));
 
       if (conf.mouse_thrust)
          player_accelOver();
@@ -2199,6 +2336,7 @@ void player_dead (void)
 {
    /* Explode at normal speed. */
    pause_setSpeed(1.);
+   sound_setSpeed(1.);
 
    gui_cleanup();
 
@@ -2229,6 +2367,7 @@ void player_destroyed (void)
 
    /* Reset time compression when player dies. */
    pause_setSpeed( 1. );
+   sound_setSpeed( 1. );
 }
 
 
@@ -2260,6 +2399,19 @@ static int player_shipsCompare( const void *arg1, const void *arg2 )
 
 
 /**
+ * @brief Sorts the players ships.
+ */
+void player_shipsSort (void)
+{
+   if (player_nstack == 0)
+      return;
+
+   /* Sort. */
+   qsort( player_stack, player_nstack, sizeof(PlayerShip_t), player_shipsCompare );
+}
+
+
+/**
  * @brief Returns a buffer with all the player's ships names.
  *
  *    @param sships Fills sships with player_nships ship names.
@@ -2275,7 +2427,7 @@ int player_ships( char** sships, glTexture** tships )
       return 0;
 
    /* Sort. */
-   qsort( player_stack, player_nstack, sizeof(PlayerShip_t), player_shipsCompare );
+   player_shipsSort();
 
    /* Create the struct. */
    for (i=0; i < player_nstack; i++) {
@@ -2290,7 +2442,7 @@ int player_ships( char** sships, glTexture** tships )
 /**
  * @brief Gets all of the player's ships.
  *
- *    @param[out] Number of star systems gotten.
+ *    @param[out] n Number of star systems gotten.
  *    @return The player's ships.
  */
 const PlayerShip_t* player_getShipStack( int *n )
@@ -2317,7 +2469,7 @@ int player_nships (void)
  *    @param shipname Nome of the ship to get.
  *    @return 1 if ship exists.
  */
-int player_hasShip( char* shipname )
+int player_hasShip( const char *shipname )
 {
    int i;
 
@@ -2339,7 +2491,7 @@ int player_hasShip( char* shipname )
  *    @param shipname Nome of the ship to get.
  *    @return The ship matching name.
  */
-Pilot* player_getShip( char* shipname )
+Pilot *player_getShip( const char *shipname )
 {
    int i;
 
@@ -2350,59 +2502,15 @@ Pilot* player_getShip( char* shipname )
       if (strcmp(player_stack[i].p->name, shipname)==0)
          return player_stack[i].p;
 
-   WARN("Player ship '%s' not found in stack", shipname);
+   WARN(_("Player ship '%s' not found in stack"), shipname);
    return NULL;
-}
-
-
-/**
- * @brief Gets where a specific ship is.
- *
- *    @param shipname Ship to check where it is.
- *    @return The location of the ship.
- */
-char* player_getLoc( char* shipname )
-{
-   int i;
-
-   if (strcmp(player.p->name,shipname)==0)
-      return land_planet->name;
-
-   for (i=0; i < player_nstack; i++)
-      if (strcmp(player_stack[i].p->name, shipname)==0)
-         return player_stack[i].loc;
-
-   WARN("Player ship '%s' not found in stack", shipname);
-   return NULL;
-}
-
-
-/**
- * @brief Sets the location of a specific ship.
- *
- *    @param shipname Name of the ship to change location of.
- *    @param loc Location of the ship to change to.
- */
-void player_setLoc( char* shipname, char* loc )
-{
-   int i;
-
-   for (i=0; i < player_nstack; i++) {
-      if (strcmp(player_stack[i].p->name, shipname)==0) {
-         free(player_stack[i].loc);
-         player_stack[i].loc = strdup(loc);
-         return;
-      }
-   }
-
-   WARN("Player ship '%s' not found in stack", shipname);
 }
 
 
 /**
  * @brief Gets how many of the outfit the player owns.
  *
- *    @param outfitname Outfit to check how many the player owns.
+ *    @param o Outfit to check how many the player owns.
  *    @return The number of outfits matching outfitname owned.
  */
 int player_outfitOwned( const Outfit* o )
@@ -2430,6 +2538,23 @@ int player_outfitOwned( const Outfit* o )
          return player_outfits[i].q;
 
    return 0;
+}
+
+
+/**
+ * Total number of an outfit owned by the player (including equipped).
+ */
+int player_outfitOwnedTotal( const Outfit* o )
+{
+   int i, q;
+
+   q  = player_outfitOwned(o);
+
+   q += pilot_numOutfit( player.p, o );
+   for (i=0; i<player_nstack; i++)
+      q += pilot_numOutfit( player_stack[i].p, o );
+
+   return q;
 }
 
 
@@ -2466,12 +2591,11 @@ const PlayerOutfit_t* player_getOutfits( int *n )
  * @brief Prepares two arrays for displaying in an image array.
  *
  *    @param[out] outfits Outfits the player owns.
- *    @param[out] toutfits Optional store textures for the image array.
  *    @param[in] filter Function to filter which outfits to get.
  *    @param[in] name Name fragment that each outfit must contain.
  *    @return Number of outfits.
  */
-int player_getOutfitsFiltered( Outfit **outfits, glTexture** toutfits,
+int player_getOutfitsFiltered( Outfit **outfits,
       int(*filter)( const Outfit *o ), char *name )
 {
    int i;
@@ -2486,7 +2610,7 @@ int player_getOutfitsFiltered( Outfit **outfits, glTexture** toutfits,
    for (i=0; i<player_noutfits; i++)
       outfits[i] = (Outfit*)player_outfits[i].o;
 
-   return outfits_filter( outfits, toutfits, player_noutfits, filter, name );
+   return outfits_filter( outfits, player_noutfits, filter, name );
 }
 
 
@@ -2512,7 +2636,7 @@ int player_addOutfit( const Outfit *o, int quantity )
 {
    int i;
 
-   /* Sanity check. */
+   /* Validity check. */
    if (quantity == 0)
       return 0;
 
@@ -2746,9 +2870,9 @@ void player_runHooks (void)
 
 
 /**
- * @brief Clears escorts to make sure deployment is sane.
+ * @brief Clears escorts to make sure deployment is safe.
  */
-void player_clearEscorts (void)
+static void player_clearEscorts (void)
 {
    int i;
 
@@ -2775,18 +2899,21 @@ int player_addEscorts (void)
    unsigned int e;
    Outfit *o;
    int q;
+   int dockslot = -1;
 
    /* Clear escorts first. */
    player_clearEscorts();
 
    for (i=0; i<player.p->nescorts; i++) {
+      if (!player.p->escorts[i].persist) {
+         escort_rmListIndex(player.p, i);
+         i--;
+         continue;
+      }
+
       a = RNGF() * 2 * M_PI;
       vect_cset( &v, player.p->solid->pos.x + 50.*cos(a),
             player.p->solid->pos.y + 50.*sin(a) );
-      e = escort_create( player.p, player.p->escorts[i].ship,
-            &v, &player.p->solid->vel, player.p->solid->dir,
-            player.p->escorts[i].type, 0 );
-      player.p->escorts[i].id = e; /* Important to update ID. */
 
       /* Update outfit if needed. */
       if (player.p->escorts[i].type != ESCORT_TYPE_BAY)
@@ -2812,12 +2939,18 @@ int player_addEscorts (void)
          if (q >= outfit_amount(player.p->outfits[j]->outfit))
             continue;
 
-         /* Mark as deployed. */
-         player.p->outfits[j]->u.ammo.deployed += 1;
+         dockslot = j;
          break;
       }
-      if (j >= player.p->noutfits)
-         WARN("Unable to mark escort as deployed");
+
+      if (dockslot == -1)
+         DEBUG(_("Escort is undeployed"));
+
+      /* Create escort. */
+      e = escort_create( player.p, player.p->escorts[i].ship,
+            &v, &player.p->solid->vel, player.p->solid->dir,
+            player.p->escorts[i].type, 0, dockslot );
+      player.p->escorts[i].id = e; /* Important to update ID. */
    }
 
    return 0;
@@ -2832,10 +2965,12 @@ static int player_saveEscorts( xmlTextWriterPtr writer )
    int i;
 
    for (i=0; i<player.p->nescorts; i++) {
-      xmlw_startElem(writer, "escort");
-      xmlw_attr(writer,"type","bay"); /**< @todo other types. */
-      xmlw_str(writer, "%s", player.p->escorts[i].ship);
-      xmlw_endElem(writer); /* "escort" */
+      if (player.p->escorts[i].persist) {
+         xmlw_startElem(writer, "escort");
+         xmlw_attr(writer,"type","bay"); /**< @todo other types. */
+         xmlw_str(writer, "%s", player.p->escorts[i].ship);
+         xmlw_endElem(writer); /* "escort" */
+      }
    }
 
    return 0;
@@ -2854,13 +2989,14 @@ int player_save( xmlTextWriterPtr writer )
    int i, n;
    MissionData *m;
    const char *ev;
-   int scu, stp, stu;
+   int cycles, periods, seconds;
    double rem;
 
    xmlw_startElem(writer,"player");
 
    /* Standard player details. */
    xmlw_attr(writer,"name","%s",player.name);
+   xmlw_attr(writer,"dt_mod","%f",player.dt_mod);
    xmlw_elem(writer,"rating","%f",player.crating);
    xmlw_elem(writer,"credits","%"CREDITS_PRI,player.p->credits);
    if (player.gui != NULL)
@@ -2870,21 +3006,21 @@ int player_save( xmlTextWriterPtr writer )
 
    /* Time. */
    xmlw_startElem(writer,"time");
-   ntime_getR( &scu, &stp, &stu, &rem );
-   xmlw_elem(writer,"SCU","%d", scu);
-   xmlw_elem(writer,"STP","%d", stp);
-   xmlw_elem(writer,"STU","%d", stu);
+   ntime_getR( &cycles, &periods, &seconds, &rem );
+   xmlw_elem(writer,"SCU","%d", cycles);
+   xmlw_elem(writer,"STP","%d", periods);
+   xmlw_elem(writer,"STU","%d", seconds);
    xmlw_elem(writer,"Remainder","%lf", rem);
    xmlw_endElem(writer); /* "time" */
 
    /* Current ship. */
-   xmlw_elem(writer,"location","%s",land_planet->name);
-   player_saveShip( writer, player.p, NULL ); /* current ship */
+   xmlw_elem(writer, "location", "%s", land_planet->name);
+   player_saveShip( writer, player.p ); /* current ship */
 
    /* Ships. */
    xmlw_startElem(writer,"ships");
    for (i=0; i<player_nstack; i++)
-      player_saveShip( writer, player_stack[i].p, player_stack[i].loc );
+      player_saveShip( writer, player_stack[i].p );
    xmlw_endElem(writer); /* "ships" */
 
    /* GUIs. */
@@ -2897,17 +3033,17 @@ int player_save( xmlTextWriterPtr writer )
    /* Outfits. */
    xmlw_startElem(writer,"outfits");
    for (i=0; i<player_noutfits; i++) {
-      xmlw_startElem(writer,"outfit");
-      xmlw_attr(writer,"quantity","%d",player_outfits[i].q);
-      xmlw_str(writer,"%s",player_outfits[i].o->name);
+      xmlw_startElem(writer, "outfit");
+      xmlw_attr(writer, "quantity", "%d", player_outfits[i].q);
+      xmlw_str(writer, "%s", player_outfits[i].o->name);
       xmlw_endElem(writer); /* "outfit" */
    }
    xmlw_endElem(writer); /* "outfits" */
 
    /* Licenses. */
-   xmlw_startElem(writer,"licenses");
+   xmlw_startElem(writer, "licenses");
    for (i=0; i<player_nlicenses; i++)
-      xmlw_elem(writer,"license","%s",player_licenses[i]);
+      xmlw_elem(writer, "license", "%s", player_licenses[i]);
    xmlw_endElem(writer); /* "licenses" */
 
    xmlw_endElem(writer); /* "player" */
@@ -2917,16 +3053,16 @@ int player_save( xmlTextWriterPtr writer )
    for (i=0; i<missions_ndone; i++) {
       m = mission_get(missions_done[i]);
       if (m != NULL) /* In case mission name changes between versions */
-         xmlw_elem(writer,"done","%s",m->name);
+         xmlw_elem(writer, "done", "%s", m->name);
    }
    xmlw_endElem(writer); /* "missions_done" */
 
    /* Events the player has done. */
-   xmlw_startElem(writer,"events_done");
+   xmlw_startElem(writer, "events_done");
    for (i=0; i<events_ndone; i++) {
       ev = event_dataName(events_done[i]);
       if (ev != NULL) /* In case mission name changes between versions */
-         xmlw_elem(writer,"done","%s",ev);
+         xmlw_elem(writer, "done", "%s", ev);
    }
    xmlw_endElem(writer); /* "events_done" */
 
@@ -2964,11 +3100,9 @@ static int player_saveShipSlot( xmlTextWriterPtr writer, PilotOutfitSlot *slot, 
  *
  *    @param writer XML writer.
  *    @param ship Ship to save.
- *    @param loc Location of the ship.
  *    @return 0 on success.
  */
-static int player_saveShip( xmlTextWriterPtr writer,
-      Pilot* ship, char* loc )
+static int player_saveShip( xmlTextWriterPtr writer, Pilot* ship )
 {
    int i, j, k, n;
    int found;
@@ -2979,11 +3113,8 @@ static int player_saveShip( xmlTextWriterPtr writer,
    xmlw_attr(writer,"name","%s",ship->name);
    xmlw_attr(writer,"model","%s",ship->ship->name);
 
-   if (loc != NULL)
-      xmlw_elem(writer,"location","%s",loc);
-
    /* save the fuel */
-   xmlw_elem(writer,"fuel","%f",ship->fuel);
+   xmlw_elem(writer,"fuel","%d",ship->fuel);
 
    /* save the outfits */
    xmlw_startElem(writer,"outfits_structure");
@@ -3031,8 +3162,8 @@ static int player_saveShip( xmlTextWriterPtr writer,
          }
 
          if (!found) {
-            WARN("Found mission cargo without associated mission.");
-            WARN("Please reload save game to remove the dead cargo.");
+            WARN(_("Found mission cargo without associated mission."));
+            WARN(_("Please reload save game to remove the dead cargo."));
             continue;
          }
       }
@@ -3048,9 +3179,10 @@ static int player_saveShip( xmlTextWriterPtr writer,
    }
    xmlw_endElem(writer); /* "commodities" */
 
-   xmlw_startElem(writer,"weaponsets");
-   xmlw_attr(writer,"autoweap","%d",ship->autoweap);
-   xmlw_attr(writer,"active_set","%d",ship->active_set);
+   xmlw_startElem(writer, "weaponsets");
+   xmlw_attr(writer, "autoweap", "%d", ship->autoweap);
+   xmlw_attr(writer, "active_set", "%d", ship->active_set);
+   xmlw_attr(writer, "aim_lines", "%d", ship->aimLines);
    for (i=0; i<PILOT_WEAPON_SETS; i++) {
       weaps = pilot_weapSetList( ship, i, &n );
       xmlw_startElem(writer,"weaponset");
@@ -3118,30 +3250,32 @@ Planet* player_load( xmlNodePtr parent )
  */
 static Planet* player_parse( xmlNodePtr parent )
 {
-   char *planet, *found, *str;
+   char *planet, *found;
    unsigned int services;
    Planet *pnt;
    xmlNodePtr node, cur;
    int q;
    Outfit *o;
-   int i, map_overlay;
+   int i, map_overlay_enabled;
    StarSystem *sys;
    double a, r;
    Pilot *old_ship;
    PilotFlags flags;
-   int scu, stp, stu, time_set;
+   int cycles, periods, seconds, time_set;
    double rem;
 
-   xmlr_attr(parent,"name",player.name);
+   xmlr_attr_strd(parent, "name", player.name);
 
    /* Make sure player.p is NULL. */
    player.p = NULL;
    pnt = NULL;
 
-   /* Sane defaults. */
+   /* Safe defaults. */
    planet      = NULL;
    time_set    = 0;
-   map_overlay = 0;
+   map_overlay_enabled = 0;
+
+   player.dt_mod = 1.; /* For old saves. */
 
    /* Must get planet first. */
    node = parent->xmlChildrenNode;
@@ -3154,40 +3288,41 @@ static Planet* player_parse( xmlNodePtr parent )
    do {
 
       /* global stuff */
-      xmlr_float(node,"rating",player.crating);
-      xmlr_ulong(node,"credits",player_creds);
-      xmlr_strd(node,"gui",player.gui);
-      xmlr_int(node,"guiOverride",player.guiOverride);
-      xmlr_int(node,"mapOverlay",map_overlay);
-      ovr_setOpen(map_overlay);
+      xmlr_float(node, "dt_mod", player.dt_mod);
+      xmlr_float(node, "rating", player.crating);
+      xmlr_ulong(node, "credits", player_creds);
+      xmlr_strd(node, "gui", player.gui);
+      xmlr_int(node, "guiOverride", player.guiOverride);
+      xmlr_int(node, "mapOverlay", map_overlay_enabled);
+      ovr_setOpen(map_overlay_enabled);
 
       /* Time. */
       if (xml_isNode(node,"time")) {
          cur = node->xmlChildrenNode;
-         scu = stp = stu = -1;
+         cycles = periods = seconds = -1;
          rem = -1.;
          do {
-            xmlr_int(cur,"SCU",scu);
-            xmlr_int(cur,"STP",stp);
-            xmlr_int(cur,"STU",stu);
-            xmlr_float(cur,"Remainder",rem);
+            xmlr_int(cur, "SCU", cycles);
+            xmlr_int(cur, "STP", periods);
+            xmlr_int(cur, "STU", seconds);
+            xmlr_float(cur, "Remainder", rem);
          } while (xml_nextNode(cur));
-         if ((scu < 0) || (stp < 0) || (stu < 0) || (rem<0.))
-            WARN("Malformed time in save game!");
-         ntime_setR( scu, stp, stu, rem );
-         if ((scu >= 0) || (stp >= 0) || (stu >= 0))
+         if ((cycles < 0) || (periods < 0) || (seconds < 0) || (rem<0.))
+            WARN(_("Malformed time in save game!"));
+         ntime_setR( cycles, periods, seconds, rem );
+         if ((cycles >= 0) || (periods >= 0) || (seconds >= 0))
             time_set = 1;
       }
 
-      if (xml_isNode(node,"ship"))
-         player_parseShip(node, 1, planet);
+      if (xml_isNode(node, "ship"))
+         player_parseShip(node, 1);
 
       /* Parse ships. */
       else if (xml_isNode(node,"ships")) {
          cur = node->xmlChildrenNode;
          do {
             if (xml_isNode(cur,"ship"))
-               player_parseShip(cur, 0, planet);
+               player_parseShip(cur, 0);
          } while (xml_nextNode(cur));
       }
 
@@ -3207,17 +3342,13 @@ static Planet* player_parse( xmlNodePtr parent )
             if (xml_isNode(cur,"outfit")) {
                o = outfit_get( xml_get(cur) );
                if (o == NULL) {
-                  WARN("Outfit '%s' was saved but does not exist!", xml_get(cur));
+                  WARN(_("Outfit '%s' was saved but does not exist!"), xml_get(cur));
                   continue;
                }
 
-               xmlr_attr( cur, "quantity", str );
-               if (str != NULL) {
-                  q = atof(str);
-                  free(str);
-               }
-               else {
-                  WARN("Outfit '%s' was saved without quantity!", o->name);
+               xmlr_attr_float( cur, "quantity", q );
+               if (q == 0) {
+                  WARN(_("Outfit '%s' was saved without quantity!"), o->name);
                   continue;
                }
 
@@ -3237,34 +3368,37 @@ static Planet* player_parse( xmlNodePtr parent )
       pilot_clearFlagsRaw( flags );
       pilot_setFlagRaw( flags, PILOT_PLAYER );
       pilot_setFlagRaw( flags, PILOT_NO_OUTFITS );
-      WARN("Player ship does not exist!");
+      WARN(_("Player ship does not exist!"));
 
       if (player_nstack == 0) {
-         WARN("Player has no other ships, giving starting ship.");
+         WARN(_("Player has no other ships, giving starting ship."));
          pilot_create( ship_get(start_ship()), "MIA",
-               faction_get("Player"), "player", 0., NULL, NULL, flags, -1 );
+               faction_get("Player"), "player", 0., NULL, NULL, flags, 0, 0 );
       }
       else {
 
          /* Just give player.p a random ship in the stack. */
          old_ship = player_stack[player_nstack-1].p;
          pilot_create( old_ship->ship, old_ship->name,
-               faction_get("Player"), "player", 0., NULL, NULL, flags, -1 );
+               faction_get("Player"), "player", 0., NULL, NULL, flags, 0, 0 );
          player_rmShip( old_ship->name );
-         WARN("Giving player ship '%s'.", player.p->name );
+         WARN(_("Giving player ship '%s'."), player.p->name );
       }
    }
 
    /* Check. */
    if (player.p == NULL) {
-      ERR("Something went horribly wrong, player does not exist after load...");
+      ERR(_("Something went horribly wrong, player does not exist after load..."));
       return NULL;
    }
+
+   /* Reset player speed */
+   player.speed = 1.;
 
    /* set global thingies */
    player.p->credits = player_creds;
    if (!time_set) {
-      WARN("Save has no time information, setting to start information.");
+      WARN(_("Save has no time information, setting to start information."));
       ntime_set( start_date() );
    }
 
@@ -3273,8 +3407,8 @@ static Planet* player_parse( xmlNodePtr parent )
    /* Get random planet if it's NULL. */
    if ((pnt == NULL) || (planet_getSystem(planet) == NULL) ||
          !planet_hasService(pnt, PLANET_SERVICE_LAND)) {
-      WARN("Player starts out in non-existent or invalid planet '%s',"
-            "trying to find a suitable one instead.",
+      WARN(_("Player starts out in non-existent or invalid planet '%s',"
+            "trying to find a suitable one instead."),
             planet );
 
       /* Find a landable, inhabited planet that's in a system, offers refueling
@@ -3303,11 +3437,11 @@ static Planet* player_parse( xmlNodePtr parent )
          if (found != NULL)
             break;
 
-         WARN("Could not find a planet satisfying criteria %d.", i);
+         WARN(_("Could not find a planet satisfying criteria %d."), i);
       }
 
       if (found == NULL) {
-         WARN("Could not find a suitable planet. Choosing a random planet.");
+         WARN(_("Could not find a suitable planet. Choosing a random planet."));
          found = space_getRndPlanet(0, 0, NULL); /* This should never, ever fail. */
       }
       pnt = planet_get( found );
@@ -3359,7 +3493,7 @@ static int player_parseDoneMissions( xmlNodePtr parent )
       if (xml_isNode(node,"done")) {
          id = mission_getID( xml_get(node) );
          if (id < 0)
-            DEBUG("Mission '%s' doesn't seem to exist anymore, removing from save.",
+            DEBUG(_("Mission '%s' doesn't seem to exist anymore, removing from save."),
                   xml_get(node));
          else
             player_missionFinished( id );
@@ -3387,7 +3521,7 @@ static int player_parseDoneEvents( xmlNodePtr parent )
       if (xml_isNode(node,"done")) {
          id = event_dataID( xml_get(node) );
          if (id < 0)
-            DEBUG("Event '%s' doesn't seem to exist anymore, removing from save.",
+            DEBUG(_("Event '%s' doesn't seem to exist anymore, removing from save."),
                   xml_get(node));
          else
             player_eventFinished( id );
@@ -3407,12 +3541,19 @@ static int player_parseDoneEvents( xmlNodePtr parent )
 static int player_parseLicenses( xmlNodePtr parent )
 {
    xmlNodePtr node;
+   char *     name;
 
    node = parent->xmlChildrenNode;
 
    do {
-      if (xml_isNode(node,"license"))
-         player_addLicense( xml_get(node) );
+      if ( xml_isNode( node, "license" ) ) {
+         name = xml_get( node );
+         if ( name == NULL ) {
+            WARN( _( "License node is missing name attribute." ) );
+            continue;
+         }
+         player_addLicense( name );
+      }
    } while (xml_nextNode(node));
 
    return 0;
@@ -3435,11 +3576,11 @@ static int player_parseEscorts( xmlNodePtr parent )
 
    do {
       if (xml_isNode(node,"escort")) {
-         xmlr_attr( node, "type", buf );
+         xmlr_attr_strd( node, "type", buf );
          if (strcmp(buf,"bay")==0)
             type = ESCORT_TYPE_BAY;
          else {
-            WARN("Escort has invalid type '%s'.", buf);
+            WARN(_("Escort has invalid type '%s'."), buf);
             type = ESCORT_TYPE_NULL;
          }
          free(buf);
@@ -3447,7 +3588,7 @@ static int player_parseEscorts( xmlNodePtr parent )
          ship = xml_get(node);
 
          /* Add escort to the list. */
-         escort_addList( player.p, ship, type, 0 );
+         escort_addList( player.p, ship, type, 0, 1 );
       }
    } while (xml_nextNode(node));
 
@@ -3463,7 +3604,7 @@ static void player_addOutfitToPilot( Pilot* pilot, Outfit* outfit, PilotOutfitSl
    int ret;
 
    if (!outfit_fitsSlot( outfit, &s->sslot->slot )) {
-      DEBUG( "Outfit '%s' does not fit designated slot on player's pilot '%s', adding to stock.",
+      DEBUG( _("Outfit '%s' does not fit designated slot on player's pilot '%s', adding to stock."),
             outfit->name, pilot->name );
       player_addOutfit( outfit, 1 );
       return;
@@ -3471,7 +3612,7 @@ static void player_addOutfitToPilot( Pilot* pilot, Outfit* outfit, PilotOutfitSl
 
    ret = pilot_addOutfitRaw( pilot, outfit, s );
    if (ret != 0) {
-      DEBUG("Outfit '%s' does not fit on player's pilot '%s', adding to stock.",
+      DEBUG(_("Outfit '%s' does not fit on player's pilot '%s', adding to stock."),
             outfit->name, pilot->name);
       player_addOutfit( outfit, 1 );
       return;
@@ -3493,7 +3634,7 @@ static void player_parseShipSlot( xmlNodePtr node, Pilot *ship, PilotOutfitSlot 
 
    char *name = xml_get(node);
    if (name == NULL) {
-      WARN("Empty ship slot node found, skipping.");
+      WARN(_("Empty ship slot node found, skipping."));
       return;
    }
 
@@ -3508,7 +3649,7 @@ static void player_parseShipSlot( xmlNodePtr node, Pilot *ship, PilotOutfitSlot 
       return;
 
    /* See if has ammo. */
-   xmlr_attr(node,"ammo",buf);
+   xmlr_attr_strd(node,"ammo",buf);
    if (buf == NULL)
       return;
 
@@ -3519,16 +3660,9 @@ static void player_parseShipSlot( xmlNodePtr node, Pilot *ship, PilotOutfitSlot 
       return;
 
    /* See if has quantity. */
-   xmlr_attr(node,"quantity",buf);
-   if (buf == NULL)
-      return;
-
-   /* Get quantity. */
-   q = atoi(buf);
-   free(buf);
-
-   /* Add ammo. */
-   pilot_addAmmo( ship, slot, ammo, q );
+   xmlr_attr_int(node,"quantity",q);
+   if (q > 0)
+      pilot_addAmmo( ship, slot, ammo, q );
 }
 
 
@@ -3537,14 +3671,13 @@ static void player_parseShipSlot( xmlNodePtr node, Pilot *ship, PilotOutfitSlot 
  *
  *    @param parent Node of the ship.
  *    @param is_player Is it the ship the player is currently in?
- *    @param planet Default planet in case ship location not found.
  *    @return 0 on success.
  */
-static int player_parseShip( xmlNodePtr parent, int is_player, char *planet )
+static int player_parseShip( xmlNodePtr parent, int is_player )
 {
-   char *name, *model, *loc, *q, *id;
+   char *name, *model;
    int i, n;
-   double fuel;
+   int fuel;
    Ship *ship_parsed;
    Pilot* ship;
    xmlNodePtr node, cur, ccur;
@@ -3555,13 +3688,12 @@ static int player_parseShip( xmlNodePtr parent, int is_player, char *planet )
    Commodity *com;
    PilotFlags flags;
    unsigned int pid;
-   int autoweap, level, weapid, active_set;
+   int autoweap, level, weapid, active_set, aim_lines, in_range, weap_type;
 
-   xmlr_attr(parent,"name",name);
-   xmlr_attr(parent,"model",model);
+   xmlr_attr_strd( parent, "name", name );
+   xmlr_attr_strd( parent, "model", model );
 
-   /* Sane defaults. */
-   loc = NULL;
+   /* Safe defaults. */
    pilot_clearFlagsRaw( flags );
    pilot_setFlagRaw( flags, PILOT_PLAYER );
    pilot_setFlagRaw( flags, PILOT_NO_OUTFITS );
@@ -3569,7 +3701,7 @@ static int player_parseShip( xmlNodePtr parent, int is_player, char *planet )
    /* Get the ship. */
    ship_parsed = ship_get(model);
    if (ship_parsed == NULL) {
-      WARN("Player ship '%s' not found!", model);
+      WARN(_("Player ship '%s' not found!"), model);
 
       /* Clean up. */
       free(name);
@@ -3583,7 +3715,7 @@ static int player_parseShip( xmlNodePtr parent, int is_player, char *planet )
 
    /* player is currently on this ship */
    if (is_player != 0) {
-      pid = pilot_create( ship_parsed, name, faction_get("Player"), "player", 0., NULL, NULL, flags, -1 );
+      pid = pilot_create( ship_parsed, name, faction_get("Player"), "player", 0., NULL, NULL, flags, 0, 0 );
       ship = player.p;
       cam_setTargetPilot( pid, 0 );
    }
@@ -3601,88 +3733,68 @@ static int player_parseShip( xmlNodePtr parent, int is_player, char *planet )
    /* Defaults. */
    fuel     = -1;
    autoweap = 1;
+   aim_lines = 0;
 
    /* Start parsing. */
    node = parent->xmlChildrenNode;
    do {
-      /* Get location. */
-      if (is_player == 0)
-         xmlr_str(node,"location",loc);
-
       /* get fuel */
-      xmlr_float(node,"fuel",fuel);
+      xmlr_int(node,"fuel",fuel);
 
       /* New outfit loading. */
-      if (xml_isNode(node,"outfits_structure") || xml_isNode(node,"outfits_low")) { /** @todo remove legacy layer for 0.6.0 */
+      if (xml_isNode(node,"outfits_structure")) {
          cur = node->xmlChildrenNode;
          do { /* load each outfit */
             if (xml_isNode(cur,"outfit")) {
-               xmlr_attr(cur,"slot",q);
-               n = -1;
-               if (q != NULL) {
-                  n = atoi(q);
-                  free(q);
-               }
+               xmlr_attr_atoi_neg1( cur, "slot", n );
                if ((n<0) || (n >= ship->outfit_nstructure)) {
-                  WARN("Outfit slot out of range, not adding.");
+                  name = xml_get(cur);
+                  o = outfit_get(name);
+                  player_addOutfit( o, 1 );
+                  WARN(_("Outfit slot out of range, not adding to ship."));
                   continue;
                }
                player_parseShipSlot( cur, ship, &ship->outfit_structure[n] );
             }
          } while (xml_nextNode(cur));
       }
-      else if (xml_isNode(node,"outfits_utility") || xml_isNode(node,"outfits_medium")) { /** @todo remove legacy layer for 0.6.0 */
+      else if (xml_isNode(node,"outfits_utility")) {
          cur = node->xmlChildrenNode;
          do { /* load each outfit */
             if (xml_isNode(cur,"outfit")) {
-               xmlr_attr(cur,"slot",q);
-               n = -1;
-               if (q != NULL) {
-                  n = atoi(q);
-                  free(q);
-               }
+               xmlr_attr_atoi_neg1( cur, "slot", n );
                if ((n<0) || (n >= ship->outfit_nutility)) {
-                  WARN("Outfit slot out of range, not adding.");
+                  WARN(_("Outfit slot out of range, not adding."));
                   continue;
                }
                player_parseShipSlot( cur, ship, &ship->outfit_utility[n] );
             }
          } while (xml_nextNode(cur));
       }
-      else if (xml_isNode(node,"outfits_weapon") || xml_isNode(node,"outfits_high")) { /** @todo remove legacy layer for 0.6.0 */
+      else if (xml_isNode(node,"outfits_weapon")) {
          cur = node->xmlChildrenNode;
          do { /* load each outfit */
             if (xml_isNode(cur,"outfit")) {
-               xmlr_attr(cur,"slot",q);
-               n = -1;
-               if (q != NULL) {
-                  n = atoi(q);
-                  free(q);
-               }
+               xmlr_attr_atoi_neg1( cur, "slot", n );
                if ((n<0) || (n >= ship->outfit_nweapon)) {
-                  WARN("Outfit slot out of range, not adding.");
+                  WARN(_("Outfit slot out of range, not adding."));
                   continue;
                }
                player_parseShipSlot( cur, ship, &ship->outfit_weapon[n] );
             }
          } while (xml_nextNode(cur));
       }
-      else if (xml_isNode(node,"commodities")) {
+      else if (xml_isNode(node, "commodities")) {
          cur = node->xmlChildrenNode;
          do {
-            if (xml_isNode(cur,"commodity")) {
-               xmlr_attr(cur,"quantity",q);
-               xmlr_attr(cur,"id",id);
-               quantity = atoi(q);
-               i = (id==NULL) ? 0 : atoi(id);
-               free(q);
-               if (id != NULL)
-                  free(id);
+            if (xml_isNode(cur, "commodity")) {
+               xmlr_attr_int( cur, "quantity", quantity );
+               xmlr_attr_int( cur, "id", i );
 
                /* Get the commodity. */
                com = commodity_get(xml_get(cur));
                if (com == NULL) {
-                  WARN("Unknown commodity '%s' detected, removing.", xml_get(cur));
+                  WARN(_("Unknown commodity '%s' detected, removing."), xml_get(cur));
                   continue;
                }
 
@@ -3700,15 +3812,13 @@ static int player_parseShip( xmlNodePtr parent, int is_player, char *planet )
    /* Update stats. */
    pilot_calcStats( ship );
 
-   /* Test for sanity. */
+   /* Test for validity. */
    if (fuel >= 0)
       ship->fuel = MIN(ship->fuel_max, fuel);
-   if ((is_player == 0) && (planet_get(loc)==NULL))
-      loc = planet;
    /* ships can now be non-spaceworthy on save
     * str = pilot_checkSpaceworthy( ship ); */
-   if (!pilot_slotsCheckSanity( ship )) {
-      DEBUG("Player ship '%s' failed slot sanity check , removing all outfits and adding to stock.",
+   if (!pilot_slotsCheckSafety( ship )) {
+      DEBUG(_("Player ship '%s' failed slot validity check , removing all outfits and adding to stock."),
             ship->name );
       /* Remove all outfits. */
       for (i=0; i<ship->noutfits; i++) {
@@ -3724,7 +3834,6 @@ static int player_parseShip( xmlNodePtr parent, int is_player, char *planet )
    if (is_player == 0) {
       player_stack = realloc(player_stack, sizeof(PlayerShip_t)*(player_nstack+1));
       player_stack[player_nstack].p    = ship;
-      player_stack[player_nstack].loc  = (loc!=NULL) ? strdup(loc) : strdup("Uknown");
       player_nstack++;
    }
 
@@ -3733,73 +3842,58 @@ static int player_parseShip( xmlNodePtr parent, int is_player, char *planet )
       pilot_weapSetInrange( ship, i, WEAPSET_INRANGE_PLAYER_DEF );
 
    /* Second pass for weapon sets. */
+   active_set = 0;
    node = parent->xmlChildrenNode;
    do {
       if (!xml_isNode(node,"weaponsets"))
          continue;
 
       /* Check for autoweap. */
-      xmlr_attr(node,"autoweap",id);
-      if (id != NULL) {
-         autoweap = atoi(id);
-         free(id);
-      }
+      xmlr_attr_int( node, "autoweap", autoweap );
 
       /* Load the last weaponset the player used on this ship. */
-      xmlr_attr(node,"active_set",id);
-      if (id != NULL) {
-         active_set = atoi(id);
-         free(id);
-      }
-      else {
-         /* set active_set to invalid. will be dealt with later */
-         active_set = -1;
-      }
+      xmlr_attr_atoi_neg1( node, "active_set", active_set );
+
+      /* Check for aim_lines. */
+      xmlr_attr_int( node, "aim_lines", aim_lines );
 
       /* Parse weapon sets. */
       cur = node->xmlChildrenNode;
       do { /* Load each weapon set. */
          xml_onlyNodes(cur);
          if (!xml_isNode(cur,"weaponset")) {
-            WARN("Player ship '%s' has unknown node '%s' in 'weaponsets' (expected 'weaponset').",
+            WARN(_("Player ship '%s' has unknown node '%s' in 'weaponsets' (expected 'weaponset')."),
                   ship->name, cur->name);
             continue;
          }
 
          /* Get id. */
-         xmlr_attr(cur,"id",id);
-         if (id == NULL) {
-            WARN("Player ship '%s' missing 'id' tag for weapon set.",ship->name);
+         xmlr_attr_atoi_neg1(cur,"id",i);
+         if (i == -1) {
+            WARN(_("Player ship '%s' missing 'id' tag for weapon set."),ship->name);
             continue;
          }
-         i = atoi(id);
-         free(id);
          if ((i < 0) || (i >= PILOT_WEAPON_SETS)) {
-            WARN("Player ship '%s' has invalid weapon set id '%d' [max %d].",
+            WARN(_("Player ship '%s' has invalid weapon set id '%d' [max %d]."),
                   ship->name, i, PILOT_WEAPON_SETS-1 );
             continue;
          }
 
          /* Set inrange mode. */
-         xmlr_attr(cur,"inrange",id);
-         if (id == NULL)
-            pilot_weapSetInrange( ship, i, WEAPSET_INRANGE_PLAYER_DEF );
-         else {
-            pilot_weapSetInrange( ship, i, atoi(id) );
-            free(id);
-         }
+         xmlr_attr_int( cur, "inrange", in_range );
+         if (in_range > 0)
+            pilot_weapSetInrange( ship, i, in_range );
 
          if (autoweap) /* Autoweap handles everything except inrange. */
             continue;
 
          /* Set type mode. */
-         xmlr_attr(cur,"type",id);
-         if (id == NULL) {
-            WARN("Player ship '%s' missing 'type' tag for weapon set.",ship->name);
+         xmlr_attr_atoi_neg1( cur, "type", weap_type );
+         if (weap_type == -1) {
+            WARN(_("Player ship '%s' missing 'type' tag for weapon set."),ship->name);
             continue;
          }
-         pilot_weapSetType( ship, i, atoi(id) );
-         free(id);
+         pilot_weapSetType( ship, i, weap_type );
 
          /* Parse individual weapons. */
          ccur = cur->xmlChildrenNode;
@@ -3809,22 +3903,20 @@ static int player_parseShip( xmlNodePtr parent, int is_player, char *planet )
 
             /* Only weapon nodes. */
             if (!xml_isNode(ccur,"weapon")) {
-               WARN("Player ship '%s' has unknown 'weaponset' child node '%s' (expected 'weapon').",
+               WARN(_("Player ship '%s' has unknown 'weaponset' child node '%s' (expected 'weapon')."),
                      ship->name, ccur->name );
                continue;
             }
 
             /* Get level. */
-            xmlr_attr(ccur,"level",id);
-            if (id == NULL) {
-               WARN("Player ship '%s' missing 'level' tag for weapon set weapon.", ship->name);
+            xmlr_attr_atoi_neg1( ccur, "level", level);
+            if (level == -1) {
+               WARN(_("Player ship '%s' missing 'level' tag for weapon set weapon."), ship->name);
                continue;
             }
-            level = atoi(id);
-            free(id);
             weapid = xml_getInt(ccur);
             if ((weapid < 0) || (weapid >= ship->noutfits)) {
-               WARN("Player ship '%s' has invalid weapon id %d [max %d].",
+               WARN(_("Player ship '%s' has invalid weapon id %d [max %d]."),
                      ship->name, weapid, ship->noutfits-1 );
                continue;
             }
@@ -3840,11 +3932,14 @@ static int player_parseShip( xmlNodePtr parent, int is_player, char *planet )
    ship->autoweap = autoweap;
    if (autoweap)
       pilot_weaponAuto( ship );
-   pilot_weaponSane( ship );
+   pilot_weaponSafe( ship );
    if (active_set >= 0 && active_set < PILOT_WEAPON_SETS)
       ship->active_set = active_set;
    else
       pilot_weaponSetDefault( ship );
+
+   /* Set aimLines */
+   ship->aimLines = aim_lines;
 
    return 0;
 }

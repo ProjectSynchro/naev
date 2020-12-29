@@ -9,27 +9,27 @@
  */
 
 
-#include "spfx.h"
+/** @cond */
+#include <inttypes.h>
+#include "SDL.h"
+#include "SDL_haptic.h"
 
 #include "naev.h"
+/** @endcond */
 
-#include <inttypes.h>
+#include "spfx.h"
 
-#include "SDL.h"
-#if SDL_VERSION_ATLEAST(1,3,0)
-#include "SDL_haptic.h"
-#endif /* SDL_VERSION_ATLEAST(1,3,0) */
-
+#include "array.h"
+#include "debris.h"
 #include "log.h"
-#include "pilot.h"
-#include "physics.h"
-#include "opengl.h"
-#include "pause.h"
-#include "rng.h"
 #include "ndata.h"
 #include "nxml.h"
-#include "debris.h"
+#include "opengl.h"
+#include "pause.h"
 #include "perlin.h"
+#include "physics.h"
+#include "pilot.h"
+#include "rng.h"
 
 
 #define SPFX_XML_ID     "spfxs" /**< XML Document tag. */
@@ -61,13 +61,11 @@ static perlin_data_t *shake_noise = NULL; /**< Shake noise. */
 static const double shake_fps_min   = 1./10.; /**< Minimum fps to run shake update at. */
 
 
-#if SDL_VERSION_ATLEAST(1,3,0)
 extern SDL_Haptic *haptic; /**< From joystick.c */
 extern unsigned int haptic_query; /**< From joystick.c */
 static int haptic_rumble         = -1; /**< Haptic rumble effect ID. */
 static SDL_HapticEffect haptic_rumbleEffect; /**< Haptic rumble effect. */
 static double haptic_lastUpdate  = 0.; /**< Timer to update haptic effect again. */
-#endif /* SDL_VERSION_ATLEAST(1,3,0) */
 
 
 /**
@@ -85,7 +83,6 @@ typedef struct SPFX_Base_ {
 } SPFX_Base;
 
 static SPFX_Base *spfx_effects = NULL; /**< Total special effects. */
-static int spfx_neffects = 0; /**< Total number of special effects. */
 
 
 /**
@@ -140,8 +137,7 @@ static int spfx_base_parse( SPFX_Base *temp, const xmlNodePtr parent )
    /* Clear data. */
    memset( temp, 0, sizeof(SPFX_Base) );
 
-   /* Get the name (mallocs). */
-   temp->name = xml_nodeProp(parent,"name");
+   xmlr_attr_strd( parent, "name", temp->name );
 
    /* Extract the data. */
    node = parent->xmlChildrenNode;
@@ -154,7 +150,7 @@ static int spfx_base_parse( SPFX_Base *temp, const xmlNodePtr parent )
                SPFX_GFX_PATH"%s"SPFX_GFX_SUF, 6, 5, 0 );
          continue;
       }
-      WARN("SPFX '%s' has unknown node '%s'.", temp->name, node->name);
+      WARN(_("SPFX '%s' has unknown node '%s'."), temp->name, node->name);
    } while (xml_nextNode(node));
 
    /* Convert from ms to s. */
@@ -164,7 +160,7 @@ static int spfx_base_parse( SPFX_Base *temp, const xmlNodePtr parent )
       temp->ttl = temp->anim;
 
 #define MELEMENT(o,s) \
-   if (o) WARN("SPFX '%s' missing/invalid '"s"' element", temp->name) /**< Define to help check for data errors. */
+   if (o) WARN( _("SPFX '%s' missing/invalid '%s' element"), temp->name, s) /**< Define to help check for data errors. */
    MELEMENT(temp->anim==0.,"anim");
    MELEMENT(temp->ttl==0.,"ttl");
    MELEMENT(temp->gfx==NULL,"gfx");
@@ -181,14 +177,10 @@ static int spfx_base_parse( SPFX_Base *temp, const xmlNodePtr parent )
  */
 static void spfx_base_free( SPFX_Base *effect )
 {
-   if (effect->name != NULL) {
-      free(effect->name);
-      effect->name = NULL;
-   }
-   if (effect->gfx != NULL) {
-      gl_freeTexture(effect->gfx);
-      effect->gfx = NULL;
-   }
+   free(effect->name);
+   effect->name = NULL;
+   gl_freeTexture(effect->gfx);
+   effect->gfx = NULL;
 }
 
 
@@ -201,7 +193,7 @@ static void spfx_base_free( SPFX_Base *effect )
 int spfx_get( char* name )
 {
    int i;
-   for (i=0; i<spfx_neffects; i++)
+   for (i=0; i<array_size(spfx_effects); i++)
       if (strcmp(spfx_effects[i].name, name)==0)
          return i;
    return -1;
@@ -217,55 +209,43 @@ int spfx_get( char* name )
  */
 int spfx_load (void)
 {
-   int mem;
-   uint32_t bufsize;
-   char *buf;
    xmlNodePtr node;
    xmlDocPtr doc;
 
    /* Load and read the data. */
-   buf = ndata_read( SPFX_DATA_PATH, &bufsize );
-   doc = xmlParseMemory( buf, bufsize );
+   doc = xml_parsePhysFS( SPFX_DATA_PATH );
+   if (doc == NULL)
+      return -1;
 
    /* Check to see if document exists. */
    node = doc->xmlChildrenNode;
    if (!xml_isNode(node,SPFX_XML_ID)) {
-      ERR("Malformed '"SPFX_DATA_PATH"' file: missing root element '"SPFX_XML_ID"'");
+      ERR( _("Malformed '%s' file: missing root element '%s'"), SPFX_DATA_PATH, SPFX_XML_ID);
       return -1;
    }
 
    /* Check to see if is populated. */
    node = node->xmlChildrenNode; /* first system node */
    if (node == NULL) {
-      ERR("Malformed '"SPFX_DATA_PATH"' file: does not contain elements");
+      ERR( _("Malformed '%s' file: does not contain elements"), SPFX_DATA_PATH);
       return -1;
    }
 
    /* First pass, loads up ammunition. */
-   mem = 0;
+   spfx_effects = array_create(SPFX_Base);
    do {
       xml_onlyNodes(node);
       if (xml_isNode(node,SPFX_XML_TAG)) {
-
-         spfx_neffects++;
-         if (spfx_neffects > mem) {
-            if (mem == 0)
-               mem = SPFX_CHUNK_MIN;
-            else
-               mem *= 2;
-            spfx_effects = realloc(spfx_effects, sizeof(SPFX_Base)*mem);
-         }
-         spfx_base_parse( &spfx_effects[spfx_neffects-1], node );
+         spfx_base_parse( &array_grow(&spfx_effects), node );
       }
       else
-         WARN("'"SPFX_DATA_PATH"' has unknown node '%s'.", node->name);
+         WARN( _("'%s' has unknown node '%s'."), SPFX_DATA_PATH, node->name);
    } while (xml_nextNode(node));
    /* Shrink back to minimum - shouldn't change ever. */
-   spfx_effects = realloc(spfx_effects, sizeof(SPFX_Base) * spfx_neffects);
+   array_shrink(&spfx_effects);
 
    /* Clean up. */
    xmlFreeDoc(doc);
-   free(buf);
 
 
    /*
@@ -290,19 +270,18 @@ void spfx_free (void)
 
    /* get rid of all the particles and free the stacks */
    spfx_clear();
-   if (spfx_stack_front) free(spfx_stack_front);
+   free(spfx_stack_front);
    spfx_stack_front = NULL;
    spfx_mstack_front = 0;
-   if (spfx_stack_back) free(spfx_stack_back);
+   free(spfx_stack_back);
    spfx_stack_back = NULL;
    spfx_mstack_back = 0;
 
    /* now clear the effects */
-   for (i=0; i<spfx_neffects; i++)
+   for (i=0; i<array_size(spfx_effects); i++)
       spfx_base_free( &spfx_effects[i] );
-   free(spfx_effects);
+   array_free(spfx_effects);
    spfx_effects = NULL;
-   spfx_neffects = 0;
 
    /* Free the noise. */
    noise_delete( shake_noise );
@@ -327,8 +306,8 @@ void spfx_add( int effect,
    SPFX *cur_spfx;
    double ttl, anim;
 
-   if ((effect < 0) || (effect > spfx_neffects)) {
-      WARN("Trying to add spfx with invalid effect!");
+   if ((effect < 0) || (effect > array_size(spfx_effects))) {
+      WARN(_("Trying to add spfx with invalid effect!"));
       return;
    }
 
@@ -358,7 +337,7 @@ void spfx_add( int effect,
       spfx_nstack_back++;
    }
    else {
-      WARN("Invalid SPFX layer.");
+      WARN(_("Invalid SPFX layer."));
       return;
    }
 
@@ -523,13 +502,9 @@ void spfx_begin( const double dt, const double real_dt )
    if (shake_off)
       return;
 
-#if SDL_VERSION_ATLEAST(1,3,0)
    /* Decrement the haptic timer. */
    if (haptic_lastUpdate > 0.)
       haptic_lastUpdate -= real_dt; /* Based on real delta-tick. */
-#else /* SDL_VERSION_ATLEAST(1,3,0) */
-   (void) real_dt; /* Avoid warning. */
-#endif /* SDL_VERSION_ATLEAST(1,3,0) */
 
    /* Micro basic simple control loop. */
    if (dt > shake_fps_min) {
@@ -544,7 +519,7 @@ void spfx_begin( const double dt, const double real_dt )
       spfx_updateShake( dt );
 
    /* set the new viewport */
-   gl_matrixTranslate( shake_pos.x, shake_pos.y );
+   gl_view_matrix = gl_Matrix4_Translate( gl_view_matrix, shake_pos.x, shake_pos.y, 0 );
    shake_set = 1;
 }
 
@@ -590,8 +565,8 @@ void spfx_shake( double mod )
 /**
  * @brief Gets the current shake position.
  *
- *    @param[out] X X shake position.
- *    @param[out] Y Y shake position.
+ *    @param[out] x X shake position.
+ *    @param[out] y Y shake position.
  */
 void spfx_getShake( double *x, double *y )
 {
@@ -613,7 +588,6 @@ void spfx_getShake( double *x, double *y )
  */
 static int spfx_hapticInit (void)
 {
-#if SDL_VERSION_ATLEAST(1,3,0)
    SDL_HapticEffect *efx;
 
    /* Haptic must be enabled. */
@@ -632,10 +606,9 @@ static int spfx_hapticInit (void)
 
    haptic_rumble = SDL_HapticNewEffect( haptic, efx );
    if (haptic_rumble < 0) {
-      WARN("Unable to upload haptic effect: %s.", SDL_GetError());
+      WARN(_("Unable to upload haptic effect: %s."), SDL_GetError());
       return -1;
    }
-#endif /* SDL_VERSION_ATLEAST(1,3,0) */
 
    return 0;
 }
@@ -648,7 +621,6 @@ static int spfx_hapticInit (void)
  */
 static void spfx_hapticRumble( double mod )
 {
-#if SDL_VERSION_ATLEAST(1,3,0)
    SDL_HapticEffect *efx;
    double len, mag;
 
@@ -671,7 +643,7 @@ static void spfx_hapticRumble( double mod )
       efx->periodic.length       = (uint32_t)len;
       efx->periodic.fade_length  = MIN( efx->periodic.length, 1000 );
       if (SDL_HapticUpdateEffect( haptic, haptic_rumble, &haptic_rumbleEffect ) < 0) {
-         WARN("Failed to update haptic effect: %s.", SDL_GetError());
+         WARN(_("Failed to update haptic effect: %s."), SDL_GetError());
          return;
       }
 
@@ -681,9 +653,6 @@ static void spfx_hapticRumble( double mod )
       /* Set timer again. */
       haptic_lastUpdate += HAPTIC_UPDATE_INTERVAL;
    }
-#else /* SDL_VERSION_ATLEAST(1,3,0) */
-   (void) mod;
-#endif /* SDL_VERSION_ATLEAST(1,3,0) */
 }
 
 
@@ -726,7 +695,7 @@ void spfx_render( const int layer )
          break;
 
       default:
-         WARN("Rendering invalid SPFX layer.");
+         WARN(_("Rendering invalid SPFX layer."));
          return;
    }
 

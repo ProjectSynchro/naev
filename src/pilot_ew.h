@@ -17,8 +17,9 @@
 void pilot_updateSensorRange (void);
 double pilot_sensorRange( void );
 int pilot_inRange( const Pilot *p, double x, double y );
-int pilot_inRangePilot( const Pilot *p, const Pilot *target );
+int pilot_inRangePilot( const Pilot *p, const Pilot *target, double *dist2);
 int pilot_inRangePlanet( const Pilot *p, int target );
+int pilot_inRangeAsteroid( const Pilot *p, int ast, int fie );
 int pilot_inRangeJump( const Pilot *p, int target );
 
 /*
@@ -38,6 +39,7 @@ void pilot_ewUpdateDynamic( Pilot *p );
 double pilot_ewMovement( double vmod );
 double pilot_ewHeat( double T );
 double pilot_ewMass( double mass );
+double pilot_ewAsteroid( Pilot *p );
 
 
 #endif /* PILOT_EW_H */

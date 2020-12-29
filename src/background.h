@@ -8,8 +8,8 @@
 #  define BACKGROUND_H
 
 
-#include "opengl.h"
 #include "colour.h"
+#include "opengl.h"
 
 
 /* Render. */
@@ -33,6 +33,8 @@ int background_load( const char *name );
 void background_clear (void);
 void background_free (void);
 
+/* Get image textures */
+void background_getTextures( unsigned int *n, glTexture ***imgs );
 
 #endif /* BACKGROUND_H */
 

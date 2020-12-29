@@ -9,21 +9,21 @@
  */
 
 
-#include "nlua_var.h"
+/** @cond */
+#include <lauxlib.h>
+#include <lua.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "naev.h"
+/** @endcond */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include "nstring.h"
-#include <math.h>
+#include "nlua_var.h"
 
-#include <lua.h>
-#include <lauxlib.h>
-
-#include "nlua.h"
-#include "nluadef.h"
 #include "log.h"
+#include "nluadef.h"
+#include "nstring.h"
 #include "nxml.h"
 
 
@@ -72,30 +72,22 @@ int var_load( xmlNodePtr parent );
 static int var_peek( lua_State *L );
 static int var_pop( lua_State *L );
 static int var_push( lua_State *L );
-static const luaL_reg var_methods[] = {
+static const luaL_Reg var_methods[] = {
    { "peek", var_peek },
    { "pop", var_pop },
    { "push", var_push },
    {0,0}
 }; /**< Mission variable Lua methods. */
-static const luaL_reg var_cond_methods[] = {
-   { "peek", var_peek },
-   {0,0}
-}; /**< Conditional mission variable Lua methods. */
 
 
 /**
  * @brief Loads the mission variable Lua library.
- *    @param L Lua state.
- *    @param readonly Whether to open in read-only form.
+ *    @param env Lua environment.
  *    @return 0 on success.
  */
-int nlua_loadVar( lua_State *L, int readonly )
+int nlua_loadVar( nlua_env env )
 {
-   if (readonly == 0)
-      luaL_register(L, "var", var_methods);
-   else
-      luaL_register(L, "var", var_cond_methods);
+   nlua_register(env, "var", var_methods, 0);
    return 0;
 }
 
@@ -166,8 +158,8 @@ int var_load( xmlNodePtr parent )
 
          do {
             if (xml_isNode(cur,"var")) {
-               xmlr_attr(cur,"name",var.name);
-               xmlr_attr(cur,"type",str);
+               xmlr_attr_strd(cur,"name",var.name);
+               xmlr_attr_strd(cur,"type",str);
                if (strcmp(str,"nil")==0)
                   var.type = MISN_VAR_NIL;
                else if (strcmp(str,"num")==0) {
@@ -183,7 +175,7 @@ int var_load( xmlNodePtr parent )
                   var.d.str = xml_getStrd(cur);
                }
                else { /* super error checking */
-                  WARN("Unknown var type '%s'", str);
+                  WARN(_("Unknown var type '%s'"), str);
                   free(var.name);
                   continue;
                }
@@ -265,7 +257,7 @@ int var_checkflag( char* str )
 /**
  * @brief Gets the mission variable value of a certain name.
  *
- *    @luaparam name Name of the mission variable to get.
+ *    @luatparam string name Name of the mission variable to get.
  *    @luareturn The value of the mission variable which will depend on what type
  *             it is.
  * @luafunc peek( name )
@@ -304,13 +296,15 @@ static int var_peek( lua_State *L )
  *
  * This does not give you any value and destroys it permanently (or until recreated).
  *
- *    @luaparam name Name of the mission variable to pop.
+ *    @luatparam string name Name of the mission variable to pop.
  * @luafunc pop( name )
  */
 static int var_pop( lua_State *L )
 {
    int i;
    const char* str;
+
+   NLUA_CHECKRW(L);
 
    str = luaL_checkstring(L,1);
 
@@ -331,7 +325,7 @@ static int var_pop( lua_State *L )
  * This will overwrite existing vars, so it's a good way to update the values
  *  of different mission variables.
  *
- *    @luaparam name Name to use for the new mission variable.
+ *    @luatparam string name Name to use for the new mission variable.
  *    @luaparam value Value of the new mission variable.  Accepted types are:
  *                  nil, bool, string or number.
  * @luafunc push( name, value )
@@ -340,6 +334,8 @@ static int var_push( lua_State *L )
 {
    const char *str;
    misn_var var;
+
+   NLUA_CHECKRW(L);
 
    str = luaL_checkstring(L,1);
 
@@ -377,10 +373,8 @@ static void var_free( misn_var* var )
 {
    switch (var->type) {
       case MISN_VAR_STR:
-         if (var->d.str!=NULL) {
-            free(var->d.str);
-            var->d.str = NULL;
-         }
+         free(var->d.str);
+         var->d.str = NULL;
          break;
       case MISN_VAR_NIL:
       case MISN_VAR_NUM:
@@ -388,10 +382,8 @@ static void var_free( misn_var* var )
          break;
    }
 
-   if (var->name!=NULL) {
-      free(var->name);
-      var->name = NULL;
-   }
+   free(var->name);
+   var->name = NULL;
 }
 /**
  * @brief Cleans up all the mission variables.
@@ -402,8 +394,7 @@ void var_cleanup (void)
    for (i=0; i<var_nstack; i++)
       var_free( &var_stack[i] );
 
-   if (var_stack!=NULL)
-      free( var_stack );
+   free( var_stack );
    var_stack   = NULL;
    var_nstack  = 0;
    var_mstack  = 0;

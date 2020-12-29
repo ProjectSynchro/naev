@@ -2,24 +2,22 @@
  * See Licensing and Copyright notice in naev.h
  */
 
-#if USE_OPENAL
+/** @cond */
+#include <math.h>
+#include <vorbis/vorbisfile.h>
+#include "SDL.h"
+#include "SDL_rwops.h"
+#include "SDL_thread.h"
 
+#include "naev.h"
+/** @endcond */
 
 #include "music_openal.h"
 
-#include <math.h>
-
-#include "SDL.h"
-#include "SDL_thread.h"
-#include "SDL_rwops.h"
-
-#include <vorbis/vorbisfile.h>
-
+#include "conf.h"
+#include "log.h"
 #include "music.h"
 #include "sound_openal.h"
-#include "naev.h"
-#include "log.h"
-#include "conf.h"
 
 
 /**
@@ -27,10 +25,6 @@
  */
 #define RG_PREAMP_DB       0.0
 
-
-/* Lock for OpenAL operations. */
-#define soundLock()        SDL_mutexP(sound_lock)
-#define soundUnlock()      SDL_mutexV(sound_lock)
 
 /* Lock for all state/cond operations. */
 #define musicLock()        SDL_mutexP(music_state_lock)
@@ -80,7 +74,6 @@ static char *music_buf              = NULL; /**< Music playing buffer. */
 /*
  * Locks.
  */
-extern SDL_mutex *sound_lock; /**< Global sound lock, used for all OpenAL calls. */
 static SDL_mutex *music_vorbis_lock = NULL; /**< Lock for vorbisfile operations. */
 static SDL_cond  *music_state_cond  = NULL; /**< Cond for thread to signal status updates. */
 static SDL_mutex *music_state_lock  = NULL; /**< Lock for music state. */
@@ -93,7 +86,7 @@ static int music_forced             = 0; /**< Whether or not music is force stop
  * saves the music to ram in this structure
  */
 typedef struct alMusic_ {
-   char name[64]; /**< Song name. */
+   char name[PATH_MAX]; /**< Song name. */
    SDL_RWops *rw; /**< RWops file reading from. */
    OggVorbis_File stream; /**< Vorbis file stream. */
    vorbis_info* info; /**< Information of the stream. */
@@ -419,8 +412,7 @@ static int music_thread( void* unused )
                   break;
                }
             }
-
-            /* Purpose fallthrough. */
+            /* fallthrough */
 
          /* Play the song if needed. */
          case MUSIC_STATE_PLAYING:
@@ -498,8 +490,8 @@ static void rg_filter( float **pcm, long channels, long samples, void *filter_pa
 
    /* Apply the gain, and any limiting necessary */
    if (scale_factor > max_scale) {
-      for(i = 0; i < channels; i++)
-         for(j = 0; j < samples; j++) {
+      for (i = 0; i < channels; i++)
+         for (j = 0; j < samples; j++) {
             cur_sample = pcm[i][j] * scale_factor;
             /*
              * This is essentially the scaled hard-limiting algorithm
@@ -514,8 +506,8 @@ static void rg_filter( float **pcm, long channels, long samples, void *filter_pa
          }
    }
    else if (scale_factor > 0.0)
-      for(i = 0; i < channels; i++)
-         for(j = 0; j < samples; j++)
+      for (i = 0; i < channels; i++)
+         for (j = 0; j < samples; j++)
             pcm[i][j] *= scale_factor;
 }
 #endif /* HAVE_OV_READ_FILTER */
@@ -547,7 +539,7 @@ static int stream_loadBuffer( ALuint buffer )
             &music_vorbis.stream,   /* stream */
             &music_buf[size],       /* data */
             music_bufSize - size,   /* amount to read */
-            VORBIS_ENDIAN,          /* big endian? */
+            HAS_BIGENDIAN,          /* big endian? */
             2,                      /* 16 bit */
             1,                      /* signed */
             &section,               /* current bitstream */
@@ -558,7 +550,7 @@ static int stream_loadBuffer( ALuint buffer )
             &music_vorbis.stream,   /* stream */
             &music_buf[size],       /* data */
             music_bufSize - size,   /* amount to read */
-            VORBIS_ENDIAN,          /* big endian? */
+            HAS_BIGENDIAN,          /* big endian? */
             2,                      /* 16 bit */
             1,                      /* signed */
             &section );             /* current bitstream */
@@ -576,13 +568,13 @@ static int stream_loadBuffer( ALuint buffer )
       /* Hole error. */
       else if (result == OV_HOLE) {
          musicVorbisUnlock();
-         WARN("OGG: Vorbis hole detected in music!");
+         WARN(_("OGG: Vorbis hole detected in music!"));
          return 0;
       }
       /* Bad link error. */
       else if (result == OV_EBADLINK) {
          musicVorbisUnlock();
-         WARN("OGG: Invalid stream section or corrupt link in music!");
+         WARN(_("OGG: Invalid stream section or corrupt link in music!"));
          return -1;
       }
 
@@ -645,9 +637,7 @@ int music_al_init (void)
    musicLock();
    music_state  = MUSIC_STATE_STARTUP;
    music_player = SDL_CreateThread( music_thread,
-#if SDL_VERSION_ATLEAST(1,3,0)
          "music_thread",
-#endif /* SDL_VERSION_ATLEAST(1,3,0) */
          NULL );
    SDL_CondWait( music_state_cond, music_state_lock );
    musicUnlock();
@@ -674,9 +664,7 @@ void music_al_exit (void)
 
    soundUnlock();
 
-   /* Free the buffer. */
-   if (music_buf != NULL)
-      free(music_buf);
+   free(music_buf);
    music_buf = NULL;
 
    /* Destroy the mutex. */
@@ -699,13 +687,14 @@ int music_al_load( const char* name, SDL_RWops *rw )
    musicVorbisLock();
 
    /* set the new name */
-   strncpy( music_vorbis.name, name, 64 );
+   strncpy( music_vorbis.name, name, PATH_MAX );
+   music_vorbis.name[PATH_MAX-1] = '\0';
 
    /* Load new ogg. */
    music_vorbis.rw = rw;
    if (ov_open_callbacks( music_vorbis.rw, &music_vorbis.stream,
             NULL, 0, sound_al_ovcall ) < 0) {
-      WARN("Song '%s' does not appear to be a vorbis bitstream.", name);
+      WARN(_("Song '%s' does not appear to be a Vorbis bitstream."), name);
       musicUnlock();
       return -1;
    }
@@ -727,7 +716,7 @@ int music_al_load( const char* name, SDL_RWops *rw )
    music_vorbis.rg_scale_factor = pow(10.0, (track_gain_db + RG_PREAMP_DB)/20);
    music_vorbis.rg_max_scale = 1.0 / track_peak;
    if (!rg)
-      DEBUG("Song '%s' has no replaygain information.", name );
+      DEBUG(_("Song '%s' has no replaygain information."), name );
 
    /* Set the format */
    if (music_vorbis.info->channels == 1)
@@ -908,7 +897,7 @@ void music_al_setPos( double sec )
    musicVorbisUnlock();
 
    if (ret != 0)
-      WARN("Unable to seek vorbis file.");
+      WARN(_("Unable to seek Vorbis file."));
 }
 
 
@@ -952,12 +941,7 @@ static void music_kill (void)
 
       /* Timed out, just slaughter the thread. */
       if (ret == SDL_MUTEX_TIMEDOUT) {
-#if SDL_VERSION_ATLEAST(2,0,0)
-         WARN("Music thread did not exit when asked, ignoring...");
-#else /* SDL_VERSION_ATLEAST(2,0,0) */
-         WARN("Music thread did not exit when asked, slaughtering...");
-         SDL_KillThread( music_player );
-#endif /* SDL_VERSION_ATLEAST(2,0,0) */
+         WARN(_("Music thread did not exit when asked, ignoring..."));
          break;
       }
 
@@ -968,5 +952,3 @@ static void music_kill (void)
 
    musicUnlock();
 }
-
-#endif /* USE_OPENAL */

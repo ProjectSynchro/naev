@@ -11,17 +11,20 @@ function atk_corvette ()
    local target = _atk_com_think()
    if target == nil then return end
 
-   -- Targetting stuff
+   -- Targeting stuff
    ai.hostile(target) -- Mark as hostile
    ai.settarget(target)
+
+   -- See if the enemy is still seeable
+   if not _atk_check_seeable() then return end
 
    -- Get stats about enemy
    local dist  = ai.dist( target ) -- get distance
    local range = ai.getweaprange(3, 0)
    local range2 = ai.getweaprange(3, 1)
-   
+
    if range2 > range then
-    range = range2
+      range = range2
    end
 
    -- We first bias towards range

@@ -8,25 +8,26 @@
  * @brief Contains Naev generic Lua bindings.
  */
 
-#include "nlua_naev.h"
-
-#include "naev.h"
-
+/** @cond */
 #include <lauxlib.h>
 
-#include "nlua.h"
-#include "nluadef.h"
-#include "nlua_evt.h"
-#include "nlua_misn.h"
-#include "log.h"
-#include "nstd.h"
+#include "naev.h"
+/** @endcond */
+
+#include "nlua_naev.h"
+
 #include "input.h"
 #include "land.h"
+#include "log.h"
+#include "nlua_evt.h"
+#include "nlua_misn.h"
+#include "nluadef.h"
 #include "nstring.h"
+#include "player.h"
 
 
 /* Naev methods. */
-static int naev_lang( lua_State *L );
+static int naev_Lversion( lua_State *L );
 static int naev_ticks( lua_State *L );
 static int naev_keyGet( lua_State *L );
 static int naev_keyEnable( lua_State *L );
@@ -34,8 +35,8 @@ static int naev_keyEnableAll( lua_State *L );
 static int naev_keyDisableAll( lua_State *L );
 static int naev_eventStart( lua_State *L );
 static int naev_missionStart( lua_State *L );
-static const luaL_reg naev_methods[] = {
-   { "lang", naev_lang },
+static const luaL_Reg naev_methods[] = {
+   { "version", naev_Lversion },
    { "ticks", naev_ticks },
    { "keyGet", naev_keyGet },
    { "keyEnable", naev_keyEnable },
@@ -50,12 +51,12 @@ static const luaL_reg naev_methods[] = {
 /**
  * @brief Loads the Naev Lua library.
  *
- *    @param L Lua state.
+ *    @param env Lua environment.
  *    @return 0 on success.
  */
-int nlua_loadNaev( lua_State *L )
+int nlua_loadNaev( nlua_env env )
 {
-   luaL_register(L, "naev", naev_methods);
+   nlua_register(env, "naev", naev_methods, 0);
    return 0;
 }
 
@@ -71,19 +72,24 @@ int nlua_loadNaev( lua_State *L )
  *
  * @luamod naev
  */
+
 /**
- * @brief Gets the language Naev is currently using.
+ * @brief Gets the version of Naev and the save game.
  *
- * @usage if naev.lang() == "en" then -- Language is english
+ * @usage game_version, save_version = naev.version()
  *
- *    @luareturn Two character identifier of the language.
- * @luafunc lang()
+ *    @luatreturn game_version The version of the game.
+ *    @luatreturn save_version Version of current loaded save or nil if not loaded.
+ * @luafunc version()
  */
-static int naev_lang( lua_State *L )
+static int naev_Lversion( lua_State *L )
 {
-   /** @todo multilanguage stuff */
-   lua_pushstring(L,"en");
-   return 1;
+   lua_pushstring( L, naev_version(0) );
+   if (player.loaded_version==NULL)
+      lua_pushnil( L );
+   else
+      lua_pushstring( L, player.loaded_version );
+   return 2;
 }
 
 /**
@@ -91,7 +97,7 @@ static int naev_lang( lua_State *L )
  *
  * Useful for doing timing on Lua functions.
  *
- *    @luareturn The SDL ticks since the application started running.
+ *    @luatreturn number The SDL ticks since the application started running.
  * @luafunc ticks()
  */
 static int naev_ticks( lua_State *L )
@@ -102,62 +108,23 @@ static int naev_ticks( lua_State *L )
 
 
 /**
- * @brief Gets the keybinding value by name.
+ * @brief Gets a human-readable name for the key bound to a function.
  *
  * @usage bindname = naev.keyGet( "accel" )
  *
- *    @luaparam keyname Name of the keybinding to get value of.
+ *    @luatparam string keyname Name of the keybinding to get value of. Valid values are listed in src/input.c: keybind_info.
  * @luafunc keyGet( keyname )
  */
 static int naev_keyGet( lua_State *L )
 {
-   int p;
    const char *keyname;
-   SDLKey key;
-   KeybindType type;
-   SDLMod mod;
    char buf[128];
 
    /* Get parameters. */
    keyname = luaL_checkstring( L, 1 );
 
-   /* Get the keybinding. */
-   key = input_getKeybind( keyname, &type, &mod );
-
-   /* Handle type. */
-   switch (type) {
-      case KEYBIND_NULL:
-         lua_pushstring( L, "Not bound" );
-         break;
-
-      case KEYBIND_KEYBOARD:
-         p = 0;
-         /* Handle mod. */
-         if ((mod != NMOD_NONE) && (mod != NMOD_ALL))
-            p += nsnprintf( &buf[p], sizeof(buf)-p, "%s + ", input_modToText(mod) );
-         /* Print key. */
-         if (nstd_isalpha(key))
-            p += nsnprintf( &buf[p], sizeof(buf)-p, "%c", nstd_toupper(key) );
-         else
-            p += nsnprintf( &buf[p], sizeof(buf)-p, "%s", SDL_GetKeyName(key) );
-         lua_pushstring( L, buf );
-         break;
-
-      case KEYBIND_JBUTTON:
-         nsnprintf( buf, sizeof(buf), "joy button %d", key );
-         lua_pushstring( L, buf );
-         break;
-
-      case KEYBIND_JAXISPOS:
-         nsnprintf( buf, sizeof(buf), "joy axis %d-", key );
-         lua_pushstring( L, buf );
-         break;
-
-      case KEYBIND_JAXISNEG:
-         nsnprintf( buf, sizeof(buf), "joy axis %d+", key );
-         lua_pushstring( L, buf );
-         break;
-   }
+   input_getKeybindDisplay( keyname, buf, sizeof(buf) );
+   lua_pushstring( L, buf );
 
    return 1;
 }
@@ -169,14 +136,16 @@ static int naev_keyGet( lua_State *L )
  * Use with caution, this can make the player get stuck.
  *
  * @usage naev.keyEnable( "accel", false ) -- Disables the acceleration key
- *    @luaparam keyname Name of the key to disable (for example "accel").
- *    @luaparam enable Whether to enable or disable (if omitted disables).
+ *    @luatparam string keyname Name of the key to disable (for example "accel").
+ *    @luatparam[opt=false] boolean enable Whether to enable or disable.
  * @luafunc keyEnable( keyname, enable )
  */
 static int naev_keyEnable( lua_State *L )
 {
    const char *key;
    int enable;
+
+   NLUA_CHECKRW(L);
 
    /* Parameters. */
    key = luaL_checkstring(L,1);
@@ -195,7 +164,7 @@ static int naev_keyEnable( lua_State *L )
  */
 static int naev_keyEnableAll( lua_State *L )
 {
-   (void) L;
+   NLUA_CHECKRW(L);
    input_enableAll();
    return 0;
 }
@@ -209,7 +178,7 @@ static int naev_keyEnableAll( lua_State *L )
  */
 static int naev_keyDisableAll( lua_State *L )
 {
-   (void) L;
+   NLUA_CHECKRW(L);
    input_disableAll();
    return 0;
 }
@@ -219,8 +188,8 @@ static int naev_keyDisableAll( lua_State *L )
  * @brief Starts an event, does not start check conditions.
  *
  * @usage naev.eventStart( "Some Event" )
- *    @luaparam evtname Name of the event to start.
- *    @luareturn true on success.
+ *    @luatparam string evtname Name of the event to start.
+ *    @luatreturn boolean true on success.
  * @luafunc eventStart( evtname )
  */
 static int naev_eventStart( lua_State *L )
@@ -228,11 +197,13 @@ static int naev_eventStart( lua_State *L )
    int ret;
    const char *str;
 
+   NLUA_CHECKRW(L);
+
    str = luaL_checkstring(L, 1);
    ret = event_start( str, NULL );
 
    /* Get if console. */
-   lua_getglobal(L, "__cli");
+   nlua_getenv(__NLUA_CURENV, "__cli");
    if (lua_toboolean(L,-1) && landed)
       bar_regen();
    lua_pop(L,1);
@@ -246,8 +217,8 @@ static int naev_eventStart( lua_State *L )
  * @brief Starts a mission, does no check start conditions.
  *
  * @usage naev.missionStart( "Some Mission" )
- *    @luaparam misnname Name of the mission to start.
- *    @luareturn true on success.
+ *    @luatparam string misnname Name of the mission to start.
+ *    @luatreturn boolean true on success.
  * @luafunc missionStart( misnname )
  */
 static int naev_missionStart( lua_State *L )
@@ -255,11 +226,13 @@ static int naev_missionStart( lua_State *L )
    int ret;
    const char *str;
 
+   NLUA_CHECKRW(L);
+
    str = luaL_checkstring(L, 1);
    ret = mission_start( str, NULL );
 
    /* Get if console. */
-   lua_getglobal(L, "__cli");
+   nlua_getenv(__NLUA_CURENV, "__cli");
    if (lua_toboolean(L,-1) && landed)
       bar_regen();
    lua_pop(L,1);
@@ -267,7 +240,6 @@ static int naev_missionStart( lua_State *L )
    lua_pushboolean( L, !ret );
    return 1;
 }
-
 
 
 

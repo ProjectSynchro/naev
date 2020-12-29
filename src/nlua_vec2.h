@@ -7,7 +7,7 @@
 #  define NLUA_VEC2_H
 
 
-#include <lua.h>
+#include "nlua.h"
 #include "physics.h"
 
 
@@ -17,7 +17,7 @@
 /*
  * Vector library.
  */
-int nlua_loadVector( lua_State *L );
+int nlua_loadVector( nlua_env env );
 
 /*
  * Vector operations.

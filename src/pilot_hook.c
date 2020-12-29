@@ -10,19 +10,21 @@
  */
 
 
-#include "pilot_hook.h"
-
-#include "naev.h"
-
+/** @cond */
+#include <limits.h>
 #include <math.h>
 #include <stdlib.h>
-#include <limits.h>
 
-#include "nxml.h"
-#include "nstring.h"
-#include "log.h"
-#include "hook.h"
+#include "naev.h"
+/** @endcond */
+
+#include "pilot_hook.h"
+
 #include "array.h"
+#include "hook.h"
+#include "log.h"
+#include "nstring.h"
+#include "nxml.h"
 
 
 static PilotHook *pilot_globalHooks = NULL; /**< Global hooks that affect all pilots. */
@@ -34,6 +36,8 @@ static int pilot_hookCleanup = 0; /**< Are hooks being removed from a pilot? */
  *
  *    @param p Pilot to run the hook.
  *    @param hook_type Type of hook to run.
+ *    @param param Parameters to pass.
+ *    @param nparam Number of parameters to pass.
  *    @return The number of hooks run.
  */
 int pilot_runHookParam( Pilot* p, int hook_type, HookParam* param, int nparam )
@@ -46,7 +50,8 @@ int pilot_runHookParam( Pilot* p, int hook_type, HookParam* param, int nparam )
       hstaparam[0].type       = HOOK_PARAM_PILOT;
       hstaparam[0].u.lp       = p->id;
       n  = 1;
-      memcpy( &hstaparam[n], param, sizeof(HookParam)*nparam );
+      if (nparam != 0)
+         memcpy( &hstaparam[n], param, sizeof(HookParam)*nparam );
       n += nparam;
       hstaparam[n].type = HOOK_PARAM_SENTINEL;
       hdynparam         = NULL;
@@ -69,7 +74,7 @@ int pilot_runHookParam( Pilot* p, int hook_type, HookParam* param, int nparam )
 
       ret = hook_runIDparam( p->hooks[i].id, hparam );
       if (ret)
-         WARN("Pilot '%s' failed to run hook type %d", p->name, hook_type);
+         WARN(_("Pilot '%s' failed to run hook type %d"), p->name, hook_type);
       else
          run++;
    }
@@ -82,15 +87,14 @@ int pilot_runHookParam( Pilot* p, int hook_type, HookParam* param, int nparam )
 
          ret = hook_runIDparam( pilot_globalHooks[i].id, hparam );
          if (ret)
-            WARN("Pilot '%s' failed to run hook type %d", p->name, hook_type);
+            WARN(_("Pilot '%s' failed to run hook type %d"), p->name, hook_type);
          else
             run++;
       }
    }
 
    /* Clean up. */
-   if (hdynparam != NULL)
-      free( hdynparam );
+   free( hdynparam );
 
    if (run > 0)
       claim_activateAll(); /* Reset claims. */
@@ -201,19 +205,14 @@ void pilots_rmHook( unsigned int hook )
    for (i=0; i<n; i++) {
       p = plist[i];
 
-      /* Must have hooks. */
-      if (p->nhooks <= 0)
-         continue;
-
       for (j=0; j<p->nhooks; j++) {
-
          /* Hook not found. */
          if (p->hooks[j].id != hook)
             continue;
 
          p->nhooks--;
          memmove( &p->hooks[j], &p->hooks[j+1], sizeof(PilotHook) * (p->nhooks-j) );
-         j--; /* Dun like it but we have to keep iterator sane. */
+         j--; /* Dun like it but we have to keep iterator safe. */
       }
    }
 }
@@ -228,17 +227,12 @@ void pilot_clearHooks( Pilot *p )
 {
    int i;
 
-   /* No hooks to remove. */
-   if (p->nhooks <= 0)
-      return;
-
    /* Remove the hooks. */
    pilot_hookCleanup = 1;
    for (i=0; i<p->nhooks; i++)
       hook_rm( p->hooks[i].id );
    pilot_hookCleanup = 0;
 
-   /* Clear the hooks. */
    free(p->hooks);
    p->hooks  = NULL;
    p->nhooks = 0;

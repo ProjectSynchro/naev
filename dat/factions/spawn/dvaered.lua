@@ -1,5 +1,5 @@
-include("dat/factions/spawn/common.lua")
-include("dat/factions/spawn/mercenary_helper.lua")
+require("factions/spawn/common")
+require("factions/spawn/mercenary_helper")
 
 -- @brief Spawns a small patrol fleet.
 function spawn_patrol ()
@@ -54,6 +54,7 @@ end
 -- @brief Spawns a capship with escorts.
 function spawn_capship ()
     local pilots = {}
+    pilots.__fleet = true
 
     if rnd.rnd() < pbm then
         pilots = spawnBgMerc("Dvaered")
@@ -111,7 +112,7 @@ function spawn ( presence, max )
     end
   
     -- Actually spawn the pilots
-    pilots = scom.spawn( spawn_data )
+    pilots = scom.spawn( spawn_data, "Dvaered" )
 
     -- Calculate spawn data
     spawn_data = scom.choose( spawn_table )

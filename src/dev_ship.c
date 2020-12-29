@@ -8,15 +8,18 @@
  * @brief Handles the ship development routines.
  */
 
-#include "dev_ship.h"
 
-#include "naev.h"
-
+/** @cond */
 #include "SDL.h"
 
+#include "naev.h"
+/** @endcond */
+
+#include "dev_ship.h"
+
 #include "log.h"
-#include "ship.h"
 #include "nstring.h"
+#include "ship.h"
 
 
 /**
@@ -32,7 +35,7 @@ void dship_csv( const char *path )
    /* File to output to. */
    rw = SDL_RWFromFile( path, "w" );
    if (rw == NULL) {
-      WARN("Unable to open '%s' for writing: %s", path, SDL_GetError());
+      WARN(_("Unable to open '%s' for writing: %s"), path, SDL_GetError());
       return;
    }
 
@@ -92,7 +95,7 @@ void dship_csvStat( const char *path )
    /* File to output to. */
    rw = SDL_RWFromFile( path, "w" );
    if (rw == NULL) {
-      WARN("Unable to open '%s' for writing: %s", path, SDL_GetError());
+      WARN(_("Unable to open '%s' for writing: %s"), path, SDL_GetError());
       return;
    }
 

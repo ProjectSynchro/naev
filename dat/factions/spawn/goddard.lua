@@ -1,9 +1,10 @@
-include("dat/factions/spawn/common.lua")
+require("factions/spawn/common")
 
 
 -- @brief Spawns a capship with escorts.
 function spawn_capship ()
     local pilots = {}
+    pilots.__fleet = true
     local r = rnd.rnd()
 
     -- Generate the capship
@@ -56,7 +57,7 @@ function spawn ( presence, max )
     end
   
     -- Actually spawn the pilots
-    pilots = scom.spawn( spawn_data )
+    pilots = scom.spawn( spawn_data, "Goddard" )
 
     -- Calculate spawn data
     spawn_data = scom.choose( spawn_table )

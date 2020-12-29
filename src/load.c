@@ -9,36 +9,39 @@
  */
 
 
+/** @cond */
+#include "naev.h"
+/** @endcond */
+
 #include "load.h"
 
-#include "naev.h"
-
-#include "nxml.h"
-#include "log.h"
-#include "player.h"
-#include "nfile.h"
 #include "array.h"
-#include "space.h"
-#include "toolkit.h"
-#include "menu.h"
 #include "dialogue.h"
+#include "economy.h"
 #include "event.h"
-#include "news.h"
-#include "mission.h"
 #include "faction.h"
 #include "gui.h"
-#include "unidiff.h"
-#include "nlua_var.h"
-#include "land.h"
 #include "hook.h"
+#include "land.h"
+#include "log.h"
+#include "menu.h"
+#include "mission.h"
+#include "news.h"
+#include "nfile.h"
+#include "nlua_var.h"
 #include "nstring.h"
+#include "nxml.h"
 #include "outfit.h"
-
+#include "player.h"
+#include "shiplog.h"
+#include "space.h"
+#include "toolkit.h"
+#include "unidiff.h"
 
 #define LOAD_WIDTH      600 /**< Load window width. */
 #define LOAD_HEIGHT     500 /**< Load window height. */
 
-#define BUTTON_WIDTH    80 /**< Button width. */
+#define BUTTON_WIDTH    200 /**< Button width. */
 #define BUTTON_HEIGHT   30 /**< Button height. */
 
 
@@ -68,6 +71,8 @@ extern int pfaction_load( xmlNodePtr parent ); /**< Loads faction data. */
 extern int hook_load( xmlNodePtr parent ); /**< Loads hooks. */
 /* space.c */
 extern int space_sysLoad( xmlNodePtr parent ); /**< Loads the space stuff. */
+/* economy.c */
+extern int economy_sysLoad( xmlNodePtr parent ); /**< Loads the economy stuff. */
 /* unidiff.c */
 extern int diff_load( xmlNodePtr parent ); /**< Loads the universe diffs. */
 /* static */
@@ -76,6 +81,7 @@ static void load_menu_close( unsigned int wdw, char *str );
 static void load_menu_load( unsigned int wdw, char *str );
 static void load_menu_delete( unsigned int wdw, char *str );
 static int load_load( nsave_t *save, const char *path );
+static int load_gameInternal( const char* file, const char* version );
 
 
 /**
@@ -85,20 +91,19 @@ static int load_load( nsave_t *save, const char *path )
 {
    xmlDocPtr doc;
    xmlNodePtr root, parent, node, cur;
-   int scu, stp, stu;
-   char *version = NULL;
+   int cycles, periods, seconds;
 
    memset( save, 0, sizeof(nsave_t) );
 
    /* Load the XML. */
    doc   = xmlParseFile(path);
    if (doc == NULL) {
-      WARN("Unable to parse save path '%s'.", path);
+      WARN( _("Unable to parse save path '%s'."), path);
       return -1;
    }
    root = doc->xmlChildrenNode; /* base node */
    if (root == NULL) {
-      WARN("Unable to get child node of save '%s'.",path);
+      WARN( _("Unable to get child node of save '%s'."), path);
       xmlFreeDoc(doc);
       return -1;
    }
@@ -112,56 +117,50 @@ static int load_load( nsave_t *save, const char *path )
       xml_onlyNodes(parent);
 
       /* Info. */
-      if (xml_isNode(parent,"version")) {
+      if (xml_isNode(parent, "version")) {
          node = parent->xmlChildrenNode;
          do {
-            xmlr_strd(node,"naev",version);
-            xmlr_strd(node,"data",save->data);
+            xmlr_strd(node, "naev", save->version);
+            xmlr_strd(node, "data", save->data);
          } while (xml_nextNode(node));
          continue;
       }
 
-      if (xml_isNode(parent,"player")) {
+      if (xml_isNode(parent, "player")) {
          /* Get name. */
-         xmlr_attr(parent,"name",save->name);
+         xmlr_attr_strd(parent, "name", save->name);
          /* Parse rest. */
          node = parent->xmlChildrenNode;
          do {
             xml_onlyNodes(node);
 
             /* Player info. */
-            xmlr_strd(node,"location",save->planet);
-            xmlr_ulong(node,"credits",save->credits);
+            xmlr_strd(node, "location", save->planet);
+            xmlr_ulong(node, "credits", save->credits);
 
             /* Time. */
-            if (xml_isNode(node,"time")) {
+            if (xml_isNode(node, "time")) {
                cur = node->xmlChildrenNode;
-               scu = stp = stu = 0;
+               cycles = periods = seconds = 0;
                do {
-                  xmlr_int(cur,"SCU",scu);
-                  xmlr_int(cur,"STP",stp);
-                  xmlr_int(cur,"STU",stu);
+                  xmlr_int(cur, "SCU", cycles);
+                  xmlr_int(cur, "STP", periods);
+                  xmlr_int(cur, "STU", seconds);
                } while (xml_nextNode(cur));
-               save->date = ntime_create( scu, stp, stu );
+               save->date = ntime_create( cycles, periods, seconds );
                continue;
             }
 
             /* Ship info. */
-            if (xml_isNode(node,"ship")) {
-               xmlr_attr(node,"name",save->shipname);
-               xmlr_attr(node,"model",save->shipmodel);
+            if (xml_isNode(node, "ship")) {
+               xmlr_attr_strd(node, "name", save->shipname);
+               xmlr_attr_strd(node, "model", save->shipmodel);
                continue;
             }
          } while (xml_nextNode(node));
          continue;
       }
    } while (xml_nextNode(parent));
-
-   /* Handle version. */
-   if (version != NULL) {
-      naev_versionParse( save->version, version, strlen(version) );
-      free(version);
-   }
 
    /* Clean up. */
    xmlFreeDoc(doc);
@@ -176,16 +175,17 @@ static int load_load( nsave_t *save, const char *path )
 int load_refresh (void)
 {
    char **files, buf[PATH_MAX], *tmp;
-   int nfiles, i, len;
+   size_t nfiles, i, len;
    int ok;
    nsave_t *ns;
 
    if (load_saves != NULL)
       load_free();
-   load_saves = array_create( nsave_t );
 
    /* load the saves */
-   files = nfile_readDir( &nfiles, "%ssaves", nfile_dataPath() );
+   files      = nfile_readDir( &nfiles, nfile_dataPath(), "saves" );
+   load_saves = array_create_size( nsave_t, nfiles );
+
    for (i=0; i<nfiles; i++) {
       len = strlen(files[i]);
 
@@ -202,6 +202,10 @@ int load_refresh (void)
    /* Make sure files are none. */
    if (files == NULL)
       return 0;
+   if (nfiles == 0) {
+      free( files );
+      return 0;
+   }
 
    /* Make sure backups are after saves. */
    for (i=0; i<nfiles-1; i++) {
@@ -256,19 +260,12 @@ void load_free (void)
       for (i=0; i<array_size(load_saves); i++) {
          ns = &load_saves[i];
          free(ns->path);
-         if (ns->name != NULL)
-            free(ns->name);
-
-         if (ns->data != NULL)
-            free(ns->data);
-
-         if (ns->planet != NULL)
-            free(ns->planet);
-
-         if (ns->shipname != NULL)
-            free(ns->shipname);
-         if (ns->shipmodel != NULL)
-            free(ns->shipmodel);
+         free(ns->name);
+         free(ns->version);
+         free(ns->data);
+         free(ns->planet);
+         free(ns->shipname);
+         free(ns->shipmodel);
       }
       array_free( load_saves );
    }
@@ -301,7 +298,7 @@ void load_loadGameMenu (void)
    int i, n, len;
 
    /* window */
-   wid = window_create( "Load Game", -1, -1, LOAD_WIDTH, LOAD_HEIGHT );
+   wid = window_create( "wdwLoadGameMenu", _("Load Game"), -1, -1, LOAD_WIDTH, LOAD_HEIGHT );
    window_setAccept( wid, load_menu_load );
    window_setCancel( wid, load_menu_close );
 
@@ -316,7 +313,7 @@ void load_loadGameMenu (void)
          ns       = &nslist[i];
          len      = strlen(ns->path);
          if (strcmp(&ns->path[len-10],".ns.backup")==0) {
-            nsnprintf( buf, sizeof(buf), "%s \er(Backup)\e0", ns->name );
+            nsnprintf( buf, sizeof(buf), _("%s \ar(Backup)\a0"), ns->name );
             names[i] = strdup(buf);
          }
          else
@@ -326,25 +323,25 @@ void load_loadGameMenu (void)
    /* case there are no files */
    else {
       names = malloc(sizeof(char*));
-      names[0] = strdup("None");
+      names[0] = strdup(_("None"));
       n     = 1;
    }
 
    /* Player text. */
    window_addText( wid, -20, -40, 200, LOAD_HEIGHT-40-20-2*(BUTTON_HEIGHT+20),
-         0, "txtPilot", NULL, &cBlack, NULL );
+         0, "txtPilot", &gl_smallFont, NULL, NULL );
 
    window_addList( wid, 20, -50,
          LOAD_WIDTH-200-60, LOAD_HEIGHT-110,
-         "lstSaves", names, n, 0, load_menu_update );
+         "lstSaves", names, n, 0, load_menu_update, load_menu_load );
 
    /* Buttons */
    window_addButtonKey( wid, -20, 20, BUTTON_WIDTH, BUTTON_HEIGHT,
-         "btnBack", "Back", load_menu_close, SDLK_b );
+         "btnBack", _("Back"), load_menu_close, SDLK_b );
    window_addButtonKey( wid, -20, 20 + BUTTON_HEIGHT+20, BUTTON_WIDTH, BUTTON_HEIGHT,
-         "btnLoad", "Load", load_menu_load, SDLK_l );
+         "btnLoad", _("Load"), load_menu_load, SDLK_l );
    window_addButton( wid, 20, 20, BUTTON_WIDTH, BUTTON_HEIGHT,
-         "btnDelete", "Del", load_menu_delete );
+         "btnDelete", _("Delete"), load_menu_delete );
 }
 /**
  * @brief Closes the load game menu.
@@ -358,7 +355,7 @@ static void load_menu_close( unsigned int wdw, char *str )
 }
 /**
  * @brief Updates the load menu.
- *    @param wdw Window triggering function.
+ *    @param wid Widget triggering function.
  *    @param str Unused.
  */
 static void load_menu_update( unsigned int wid, char *str )
@@ -368,11 +365,11 @@ static void load_menu_update( unsigned int wid, char *str )
    nsave_t *ns;
    int n;
    char *save;
-   char buf[256], credits[ECON_CRED_STRLEN], date[64], version[256];
+   char buf[256], credits[ECON_CRED_STRLEN], date[64];
 
    /* Make sure list is ok. */
    save = toolkit_getList( wid, "lstSaves" );
-   if (strcmp(save,"None") == 0)
+   if (strcmp(save,_("None")) == 0)
       return;
 
    /* Get position. */
@@ -383,23 +380,22 @@ static void load_menu_update( unsigned int wid, char *str )
    /* Display text. */
    credits2str( credits, ns->credits, 2 );
    ntime_prettyBuf( date, sizeof(date), ns->date, 2 );
-   naev_versionString( version, sizeof(version), ns->version[0], ns->version[1], ns->version[2] );
    nsnprintf( buf, sizeof(buf),
-         "\eDName:\n"
-         "\e0   %s\n"
-         "\eDVersion:\n"
-         "\e0   %s\n"
-         "\eDDate:\n"
-         "\e0   %s\n"
-         "\eDPlanet:\n"
-         "\e0   %s\n"
-         "\eDCredits:\n"
-         "\e0   %s\n"
-         "\eDShip Name:\n"
-         "\e0   %s\n"
-         "\eDShip Model:\n"
-         "\e0   %s",
-         ns->name, version, date, ns->planet,
+         _("\anName:\n"
+         "\a0   %s\n\n"
+         "\anVersion:\n"
+         "\a0   %s\n\n"
+         "\anDate:\n"
+         "\a0   %s\n\n"
+         "\anPlanet:\n"
+         "\a0   %s\n\n"
+         "\anCredits:\n"
+         "\a0   %s\n\n"
+         "\anShip Name:\n"
+         "\a0   %s\n\n"
+         "\anShip Model:\n"
+         "\a0   %s"),
+         ns->name, ns->version, date, ns->planet,
          credits, ns->shipname, ns->shipmodel );
    window_modifyText( wid, "txtPilot", buf );
 }
@@ -415,13 +411,12 @@ static void load_menu_load( unsigned int wdw, char *str )
    int wid, pos;
    nsave_t *ns;
    int n;
-   char version[64];
    int diff;
 
-   wid = window_get( "Load Game" );
+   wid = window_get( "wdwLoadGameMenu" );
    save = toolkit_getList( wid, "lstSaves" );
 
-   if (strcmp(save,"None") == 0)
+   if (strcmp(save,_("None")) == 0)
       return;
 
    pos = toolkit_getListPos( wid, "lstSaves" );
@@ -430,14 +425,12 @@ static void load_menu_load( unsigned int wdw, char *str )
    /* Check version. */
    diff = naev_versionCompare( ns[pos].version );
    if (ABS(diff) >= 2) {
-      naev_versionString( version, sizeof(version), ns[pos].version[0],
-            ns[pos].version[1], ns[pos].version[2] );
-      if (!dialogue_YesNo( "Save game version mismatch",
-            "Save game '%s' version does not match Naev version:\n"
-            "   Save version: \er%s\e0\n"
-            "   Naev version: \eD%s\e0\n"
-            "Are you sure you want to load this game? It may lose data.",
-            save, version, naev_version(0) ))
+      if (!dialogue_YesNo( _("Save game version mismatch"),
+            _("Save game '%s' version does not match Naev version:\n"
+            "   Save version: \ar%s\a0\n"
+            "   Naev version: %s\n"
+            "Are you sure you want to load this game? It may lose data."),
+            save, ns->version, VERSION ))
          return;
    }
 
@@ -448,7 +441,7 @@ static void load_menu_load( unsigned int wdw, char *str )
    menu_main_close();
 
    /* Try to load the game. */
-   if (load_game( ns[pos].path, diff )) {
+   if (load_game( &ns[pos] )) {
       /* Failed so reopen both. */
       menu_main();
       load_loadGameMenu();
@@ -467,14 +460,14 @@ static void load_menu_delete( unsigned int wdw, char *str )
    nsave_t *ns;
    int n;
 
-   wid = window_get( "Load Game" );
+   wid = window_get( "wdwLoadGameMenu" );
    save = toolkit_getList( wid, "lstSaves" );
 
    if (strcmp(save,"None") == 0)
       return;
 
-   if (dialogue_YesNo( "Permanently Delete?",
-      "Are you sure you want to permanently delete '%s'?", save) == 0)
+   if (dialogue_YesNo( _("Permanently Delete?"),
+      _("Are you sure you want to permanently delete '%s'?"), save) == 0)
       return;
 
    /* Remove it. */
@@ -531,20 +524,87 @@ static void load_compatSlots (void)
 
 
 /**
- * @brief Actually loads a new game based on file.
+ * @brief Loads the diffs from game file.
  *
  *    @param file File that contains the new game.
  *    @return 0 on success.
  */
-int load_game( const char* file, int version_diff )
+int load_gameDiff( const char* file )
+{
+   xmlNodePtr node;
+   xmlDocPtr doc;
+
+   /* Make sure it exists. */
+   if (!nfile_fileExists(file)) {
+      dialogue_alert( _("Saved game file seems to have been deleted.") );
+      return -1;
+   }
+
+   /* Load the XML. */
+   doc   = xmlParseFile(file);
+   if (doc == NULL)
+      goto err;
+   node  = doc->xmlChildrenNode; /* base node */
+   if (node == NULL)
+      goto err_doc;
+
+   /* Diffs should be cleared automatically first. */
+   diff_load(node);
+
+   /* Free. */
+   xmlFreeDoc(doc);
+
+   return 0;
+
+err_doc:
+   xmlFreeDoc(doc);
+err:
+   WARN( _("Saved game '%s' invalid!"), file);
+   return -1;
+}
+
+
+/**
+ * @brief Loads the game from a file.
+ *
+ *    @param file File that contains the new game.
+ *    @return 0 on success
+ */
+int load_gameFile( const char *file )
+{
+   return load_gameInternal( file, naev_version(0) );
+}
+
+
+/**
+ * @brief Actually loads a new game based on save structure.
+ *
+ *    @param ns Save game to load.
+ *    @return 0 on success.
+ */
+int load_game( nsave_t *ns )
+{
+   return load_gameInternal( ns->path, ns->version );
+}
+
+
+/**
+ * @brief Actually loads a new game.
+ *
+ *    @param file File that contains the new game.
+ *    @param version Version string of game to load.
+ *    @return 0 on success.
+ */
+static int load_gameInternal( const char* file, const char* version )
 {
    xmlNodePtr node;
    xmlDocPtr doc;
    Planet *pnt;
+   int version_diff = (version!=NULL) ? naev_versionCompare(version) : 0;
 
    /* Make sure it exists. */
    if (!nfile_fileExists(file)) {
-      dialogue_alert("Savegame file seems to have been deleted.");
+      dialogue_alert( _("Saved game file seems to have been deleted.") );
       return -1;
    }
 
@@ -560,17 +620,18 @@ int load_game( const char* file, int version_diff )
    player_cleanup();
 
    /* Welcome message - must be before space_init. */
-   player_message( "\egWelcome to "APPNAME"!" );
-   player_message( "\eg v%s", naev_version(0) );
+   player_message( _("\agWelcome to %s!"), APPNAME );
+   player_message( "\ag v%s", naev_version(0) );
 
    /* Now begin to load. */
    diff_load(node); /* Must load first to work properly. */
    pfaction_load(node); /* Must be loaded before player so the messages show up properly. */
    pnt = player_load(node);
+   player.loaded_version = strdup( (version!=NULL) ? version : naev_version(0) );
 
    /* Sanitize for new version. */
    if (version_diff <= -2) {
-      WARN("Old version detected. Sanitizing ships for slots");
+      WARN( _("Old version detected. Sanitizing ships for slots") );
       load_compatSlots();
    }
 
@@ -584,9 +645,14 @@ int load_game( const char* file, int version_diff )
 
    /* Initialize the economy. */
    economy_init();
+   economy_sysLoad(node);
 
-   /* Check sanity. */
-   event_checkSanity();
+   /* Initialise the ship log */
+   shiplog_new();
+   shiplog_load(node);
+   
+   /* Check validity. */
+   event_checkValidity();
 
    /* Run the load event trigger. */
    events_trigger( EVENT_TRIGGER_LOAD );
@@ -617,7 +683,7 @@ int load_game( const char* file, int version_diff )
 err_doc:
    xmlFreeDoc(doc);
 err:
-   WARN("Savegame '%s' invalid!", file);
+   WARN( _("Saved game '%s' invalid!"), file);
    return -1;
 }
 

@@ -10,11 +10,13 @@
  */
 
 
-#include "pilot_heat.h"
+/** @cond */
+#include <math.h>
 
 #include "naev.h"
+/** @endcond */
 
-#include <math.h>
+#include "pilot_heat.h"
 
 #include "log.h"
 
@@ -118,7 +120,7 @@ void pilot_heatAddSlot( Pilot *p, PilotOutfitSlot *o )
 {
    double hmod;
    /* We consider that only 1% of the energy is lost in the form of heat,
-    * this keeps numbers sane. */
+    * this keeps numbers safe. */
    if (o->outfit->type == OUTFIT_TYPE_BOLT)
       hmod = p->stats.fwd_heat;
    else if (o->outfit->type == OUTFIT_TYPE_TURRET_BOLT)
@@ -204,7 +206,7 @@ double pilot_heatUpdateSlot( Pilot *p, PilotOutfitSlot *o, double dt )
  *  To being "space temperature"
  *
  *    @param p Pilot to update.
- *    @param Q Heat energy moved from slots.
+ *    @param Q_cond Heat energy moved from slots.
  *    @param dt Delta tick.
  */
 void pilot_heatUpdateShip( Pilot *p, double Q_cond, double dt )
@@ -239,13 +241,13 @@ double pilot_heatEfficiencyMod( double T, double Tb, double Tc )
  * @brief Overrides the usual heat model during active cooldown.
  *
  *    @param p  Pilot to update.
- *    @param dt Delta tick.
  */
 void pilot_heatUpdateCooldown( Pilot *p )
 {
    double t;
-   int i;
+   int i, ammo_threshold;
    PilotOutfitSlot *o;
+   Outfit *ammo;
 
    t = pow2( 1. - p->ctimer / p->cdelay );
    p->heat_T = p->heat_start - CONST_SPACE_STAR_TEMP - (p->heat_start -
@@ -255,6 +257,26 @@ void pilot_heatUpdateCooldown( Pilot *p )
       o = p->outfits[i];
       o->heat_T = o->heat_start - CONST_SPACE_STAR_TEMP - (o->heat_start -
             CONST_SPACE_STAR_TEMP) * t + CONST_SPACE_STAR_TEMP;
+
+      /* Refill ammo too (also part of Active Cooldown) */
+      /* Must be valid outfit. */
+      if (o->outfit == NULL)
+         continue;
+
+      /* Add ammo if able to. */
+      ammo = outfit_ammo( o->outfit );
+      if (ammo == NULL)
+         continue;
+
+      /* Initial (raw) ammo threshold */
+      ammo_threshold = round(t * pilot_maxAmmoO(p,o->outfit));
+
+      /* Adjust for deployed fighters if needed */
+      if ( outfit_isFighterBay( o->outfit ) )
+         ammo_threshold -= o->u.ammo.deployed;
+
+      if ( o->u.ammo.quantity < ammo_threshold )
+         pilot_addAmmo( p, p->outfits[i], ammo, ammo_threshold - o->u.ammo.quantity );
    }
 }
 

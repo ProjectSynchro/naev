@@ -8,11 +8,13 @@
  * @brief Generic development routines.
  */
 
-#include "dev.h"
+/** @cond */
+#include "SDL.h"
 
 #include "naev.h"
+/** @endcond */
 
-#include "SDL.h"
+#include "dev.h"
 
 #include "log.h"
 #include "nfile.h"
@@ -28,11 +30,11 @@
  */
 void dev_csv (void)
 {
-   DEBUG("Generating CSV data...");
+   DEBUG(_("Generating CSV data..."));
 
    /* Create directory. */
    if (nfile_dirMakeExist( CSV_DIR )) {
-      WARN( "Unable to generate 'naev_csv' dir." );
+      WARN( _("Unable to generate 'naev_csv' dir.") );
       return;
    }
 
@@ -57,7 +59,7 @@ void dev_csv (void)
    DEBUG("   ship_stat.csv...");
    dship_csvStat( CSV_DIR"/ship_stat.csv" );
 
-   DEBUG("Generation complete!");
+   DEBUG(_("Generation complete!"));
 }
 
 

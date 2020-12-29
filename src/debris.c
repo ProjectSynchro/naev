@@ -9,15 +9,17 @@
  */
 
 
+/** @cond */
+#include "naev.h"
+/** @endcond */
+
 #include "debris.h"
 
-#include "naev.h"
-
 #include "log.h"
-#include "pilot.h"
-#include "spfx.h"
-#include "rng.h"
 #include "nstring.h"
+#include "pilot.h"
+#include "rng.h"
+#include "spfx.h"
 
 
 static int *debris_spfx = NULL; /**< Debris special effects. */
@@ -54,7 +56,7 @@ static int debris_load (void)
 
    /* Check to make sure they exist. */
    if (debris_nspfx <= 0) {
-      WARN("No debris special effects found.");
+      WARN(_("No debris special effects found."));
       return -1;
    }
 

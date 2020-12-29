@@ -1,4 +1,21 @@
 --[[
+<?xml version='1.0' encoding='utf8'?>
+<mission name="Deal with the FLF agent">
+ <flags>
+  <unique />
+ </flags>
+ <avail>
+  <priority>2</priority>
+  <chance>100</chance>
+  <location>None</location>
+ </avail>
+ <notes>
+  <done_evt name="FLF/DV Derelicts">If you choose to help Gregar</done_evt>
+  <campaign>Join the FLF</campaign>
+ </notes>
+</mission>
+--]]
+--[[
 -- This is the first "prelude" mission leading to the FLF campaign. The player takes a FLF agent onboard, then either turns him in to the Dvaered or delivers him to a hidden FLF base.
 -- stack variable flfbase_intro:
 --      1 - The player has turned in the FLF agent or rescued the Dvaered crew. Conditional for dv_antiflf02
@@ -8,68 +25,72 @@
 
 -- localization stuff, translators would work here
 
-include("fleethelper.lua")
+require "fleethelper"
+require "missions/flf/flf_common"
+require "missions/dvaered/common"
 
-lang = naev.lang()
-if lang == "es" then
-else -- default english
-    title = {}
-    text = {}
-    turnintitle = {}
-    turnintext = {}
-    osd_desc = {}
-   
-    title[1] = "Gregar joins the party"
-    text[1] = [[A haggard-looking man emerges from the airlock. He says, "Thank goodness you're here. My name is Gregar, I'm with the Frontier Liberation Front. I mean you no harm." He licks his lips in hesitation before continuing. "I have come under attack from a Dvaered patrol. I wasn't violating any laws, and we're not even in Dvaered territory! Anyway, my ship is unable to fly."
+
+title = {}
+text = {}
+turnintitle = {}
+turnintext = {}
+osd_desc = {}
+
+title[1] = _("Gregar joins the party")
+text[1] = _([[A haggard-looking man emerges from the airlock. He says, "Thank goodness you're here. My name is Gregar, I'm with the Frontier Liberation Front. I mean you no harm." He licks his lips in hesitation before continuing. "I have come under attack from a Dvaered patrol. I wasn't violating any laws, and we're not even in Dvaered territory! Anyway, my ship is unable to fly."
     You help Gregar to your cockpit and install him in a vacant seat. He is obviously very tired, but he forces himself to speak. "Listen, I was on my way back from a mission when those Dvaered bastards jumped me. I know this is a lot to ask, but I have little choice seeing how my ship is a lost cause. Can you take me the rest of the way? It's not far. We have a secret base in the %s system. Fly there and contact my comrades. They will take you the rest of the way."
-    With that, Gregar nods off, leaving you to decide what to do next. Gregar wants you to find his friends, but harboring a known terrorist, let alone helping him, might not be looked kindly upon by the authorities...]]
+    Gregar nods off, leaving you to decide what to do next. Gregar wants you to find his friends, but harboring a known terrorist, let alone helping him, might not be looked kindly upon by the authorities...]])
     
-    title[2] = "Gregar puts an end to hostilities"
-    text[2] = [["Wha- hey! What's going on!"
+title[2] = _("Gregar puts an end to hostilities")
+text[2] = _([["Wha- hey! What's going on!"
     You were too busy dodging incoming fire, rebalancing your shields and generally trying to kill your attackers before they kill you to notice that Gregar, your passenger, has roused from his slumber. Clearly the noise and the rocking have jolted him awake. You snap at him not to distract you from this fight, but he desperately interrupts.
     "These guys are my contacts, my friends! I was supposed to meet them here! Oh crap, this is not good. I didn't realize I'd be out this long! Look, I need to use your comm array right now. Trust me!"
     Before you have a chance to ask him what he thinks he's doing, Gregar begins tuning your communications array, and soon finds the frequency he wants.
-    "FLF sentinel formation, this is Lt. Gregar Fletcher, authorization code six-six-niner-four-seven-Gamma-Foxtrot! Cease fire, I repeat, cease fire!" He then turns to you. "Same to you. Stop shooting. This is a misunderstanding, they're not your enemies."]]
+    "FLF sentinel formation, this is Lt. Gregar Fletcher, authorization code six-six-niner-four-seven-Gamma-Foxtrot! Cease fire, I repeat, cease fire!" He then turns to you. "Same to you. Stop shooting. This is a misunderstanding, they're not your enemies."]])
     
-    title[3] = ""
-    text[3] = [[You are skeptical at first, but a few seconds later it becomes apparent that the FLF fighters have indeed ceased firing. Then, there is an incoming comm from the lead ship.
+title[3] = ""
+text[3] = _([[You are skeptical at first, but a few seconds later it becomes apparent that the FLF fighters have indeed ceased firing. Then, there is an incoming comm from the lead ship.
     "This is FLF sentinel Alpha. Lt. Fletcher, authorization code verified. Why are you with that civilian? Where is your ship? And why didn't you contact us right away?"
-    "Apologies, Alpha. It's a long story. For now, let me just tell you that you can trust the pilot of this ship. He has kindly helped me out of a desperate situation, and without him I probably would never have returned alive. Request you escort us to Sindbad."
+    "Apologies, Alpha. It's a long story. For now, let me just tell you that you can trust the pilot of this ship. This pilot kindly helped me out of a desperate situation, and without that help I probably would never have returned alive. Request you escort us to Sindbad."
     "Copy that Lt. Fletcher." Alpha then addresses you. "Please follow us. We will guide you to our base. Stay close. Sensor range is lousy in these parts, and if you get separated from us, we won't be able to find you again, and you won't be able to find us or our base."
-    With that, Alpha breaks the connection. It seems you have little choice but to do as he says if you ever want to take Gregar to his destination.]]
+    With that, Alpha breaks the connection. It seems you have little choice but to do as he says if you ever want to take Gregar to his destination.]])
     
-    title[4] = "Gregar leaves the party"
-    text[4] = [[You and Gregar step out of your airlock and onto Sindbad Station. You are greeted by a group of five or six FLF soldiers. They seem relieved to see Gregar, but they clearly regard you with mistrust. You are taken to meet with a senior officer of the base. Gregar doesn't come with you, as he seems to have urgent matters to attend to - away from prying ears like your own.
-    "All right, Mr. %s," the officer begins. "I don't know who you are or what you think you're doing here, but you shouldn't kid yourself. The only reason why you are in my office and not in a holding cell is because one of my trusted colleagues is vouching for you." The officer leans a little closer to you and pins you with a level stare. "I don't think you're a Dvaered spy. The Dvaered don't have the wit to pull off decent espionage. But you shouldn't get any ideas of running to the Dvaered and blabbing about our presence here. They're neither a trusting nor a grateful sort, so they'd probably just arrest you and torture you for what you know. So, I trust you understand that your discretion is in both our interests."]]
+title[4] = _("Gregar leaves the party")
+text[4] = _([[You and Gregar step out of your airlock and onto Sindbad. You are greeted by a group of five or six FLF soldiers. They seem relieved to see Gregar, but they clearly regard you with mistrust. You are taken to meet with a senior officer of the base. Gregar doesn't come with you, as he seems to have urgent matters to attend to - away from prying ears like your own.
+    "Alright, %s," the officer begins. "I don't know who you are or what you think you're doing here, but you shouldn't kid yourself. The only reason you are in my office and not in a holding cell is because one of my trusted colleagues is vouching for you." The officer leans a little closer to you and pins you with a level stare. "I don't think you're a Dvaered spy. The Dvaered don't have the wit to pull off decent espionage. But you shouldn't get any ideas of running to the Dvaered and blabbing about our presence here. They're neither a trusting nor a grateful sort, so they'd probably just arrest you and torture you for what you know. So, I trust you understand that your discretion is in both our interests."]])
 
-    title[5] = ""
-    text[5] = [[The moment of tension passes, and the officer leans back in his chair.
+title[5] = ""
+text[5] = _([[The moment of tension passes, and the officer leans back in his chair.
     "That threat delivered, I should at least extend my gratitude for helping one of ours in his time of need, though you had no reason to do so. That's why I will allow you to move freely on this station, at least to some extent, and I will allow you to leave when you please, as well as to return if you see the need. Who knows, maybe if you hit it off with the personnel stationed here, we might even come to consider you a friend."
-    You exchange a few more polite words with the officer, then leave his office. As you head back to your ship, you consider your position. You have gained access to a center of FLF activity. Should you want to make an enemy of House Dvaered, perhaps this would be a good place to start...]]
+    You exchange a few more polite words with the officer, then leave his office. As you head back to your ship, you consider your position. You have gained access to a center of FLF activity. Should you want to make an enemy of House Dvaered, perhaps this would be a good place to start...]])
     
-    comm_msg = "Nothing personal, mate, but we're expecting someone and you ain't him. No witnesses!"
+comm_msg = _("Nothing personal, mate, but we're expecting someone and you ain't him. No witnesses!")
+
+contacttitle = _("You have lost contact with your escorts!")
+contacttext = _([[Your escorts have disappeared from your sensor grid. Unfortunately, it seems you have no way of telling where they went.
     
-    contacttitle = "You have lost contact with your escorts!"
-    contacttext = [[Your escorts have disappeared from your sensor grid. Unfortunately, it seems you have no way of telling where they went.
+You have failed to reach the FLF's hidden base.]])
     
-You have failed to reach the FLF's hidden base.]]
-    
-    turnintitle[1] = "An opportunity to uphold the law"
-    turnintext[1] = [[You have arrived at a Dvaered controlled world, and you are harboring a FLF fugitive on your ship. Fortunately, Gregar is still asleep. You could choose to alert the authorities and turn him in, and possibly collect a reward.
-    Would you like to do so?]]
-    turnintitle[2] = "Another criminal caught"
-    turnintext[2] = [[It doesn't take Dvaered security long to arrive at your landing bay. They board your ship, seize Gregar and take him away before he even comprehends what's going on.
+turnintitle[1] = _("An opportunity to uphold the law")
+turnintext[1] = _([[You have arrived at a Dvaered controlled world, and you are harboring a FLF fugitive on your ship. Fortunately, Gregar is still asleep. You could choose to alert the authorities and turn him in, and possibly collect a reward.
+    Would you like to do so?]])
+turnintitle[2] = _("Another criminal caught")
+turnintext[2] = _([[It doesn't take Dvaered security long to arrive at your landing bay. They board your ship, seize Gregar and take him away before he even comprehends what's going on.
     "You have served House Dvaered adequately, citizen," the stone-faced captain of the security detail tells you. "In recognition of your service, we may allow you to participate in other operations regarding the FLF terrorists. If you have further questions, direct them to our public liaison."
-    The officer turns and leaves without waiting for an answer, and without rewarding you in any tangible way. You wonder if you should scout out this liaison, in hopes of at least getting something out of this whole situation.]]
+    The officer turns and leaves without waiting for an answer, and without rewarding you in any tangible way. You wonder if you should scout out this liaison, in hopes of at least getting something out of this whole situation.]])
     
-    misn_title = "Deal with the FLF agent"
-    osd_desc[1] = "Take Gregar, the FLF agent to the %s system and make contact with the FLF"
-    osd_desc[2] = "Alternatively, turn Gregar in to the nearest Dvaered base"
-    
-    osd_adddesc = "Follow the FLF ships to their secret base. Do not lose them!"
-    
-    misn_desc = "You have taken onboard a member of the FLF. You must either take him where he wants to go, or turn him in to the Dvaered."
-end
+misn_title = _("Deal with the FLF agent")
+osd_desc[1] = _("Take Gregar, the FLF agent, to the %s system and make contact with the FLF")
+osd_desc[2] = _("Alternatively, turn Gregar in to the nearest Dvaered base")
+
+osd_adddesc = _("Follow the FLF ships to their secret base. Do not lose them!")
+
+misn_desc = _("You have taken onboard a member of the FLF. You must either take him where he wants to go, or turn him in to the Dvaered.")
+misn_reward = _("A chance to learn more about the FLF")
+
+log_text_flf = _([[You helped escort FLF Lt. Gregar Fletcher to the secret FLF base, Sindbad. This has earned you a small level of trust from the FLF and enabled you to freely access the FLF base.]])
+log_text_dv = _([[You turned in FLF Lt. Gregar Fletcher to Dvaered authorities. The Dvaered captain who took him off your hands said that you could join in on a campaign against the FLF terrorists; you can direct questions to a Dvaered public liaison. You may want to scout out this liaison.]])
+
 
 function create()
     missys = {system.get(var.peek("flfbase_sysname"))}
@@ -90,6 +111,7 @@ function create()
     misn.osdCreate(misn_title, {osd_desc[1]:format(destsysname), osd_desc[2]})
     misn.setDesc(misn_desc)
     misn.setTitle(misn_title)
+    misn.setReward(misn_reward)
     misn.markerAdd(system.get(destsysname), "low")
     
     gregar = misn.cargoAdd("Gregar", 0)
@@ -129,7 +151,7 @@ function enter()
         -- Add FLF ships that are to guide the player to the FLF base (but only after a battle!)
         fleetFLF = addShips( "FLF Vendetta", "flf_norun", jumppos, 3 )
         
-        faction.get("FLF"):modPlayerSingle(-200)
+        faction.get("FLF"):setPlayerStanding( -100 )
         
         hook.timer(2000, "commFLF")
         hook.timer(25000, "wakeUpGregarYouLazyBugger")
@@ -139,21 +161,21 @@ end
 -- There are two cases we need to check here: landing on the FLF base and landing on a Dvaered world.
 function land()
     -- Case FLF base
-    if planet.cur():name() == "Sindbad" then
+    if planet.cur() == planet.get("Sindbad") then
         tk.msg(title[4], text[4]:format(player.name()))
         tk.msg(title[4], text[5])
         var.push("flfbase_intro", 2)
         var.pop("flfbase_flfshipkilled")
-        misn.cargoJet(gregar)
+        flf_addLog( log_text_flf )
         misn.finish(true)
     -- Case Dvaered planet
-    elseif planet.cur():faction():name() == "Dvaered" and not basefound then
+    elseif planet.cur():faction() == faction.get("Dvaered") and not basefound then
         if tk.yesno(turnintitle[1], turnintext[1]) then
             tk.msg(turnintitle[2], turnintext[2])
             faction.get("Dvaered"):modPlayerSingle(5)
             var.push("flfbase_intro", 1)
             var.pop("flfbase_flfshipkilled")
-            misn.cargoJet(gregar)
+            dv_addAntiFLFLog( log_text_dv )
             misn.finish(true)
         end
     end
@@ -180,7 +202,7 @@ function wakeUpGregarYouLazyBugger()
     if not flfdead then
         tk.msg(title[2], text[2])
         tk.msg(title[2], text[3])
-        faction.get("FLF"):modPlayerSingle(105) -- Small buffer to ensure it doesn't go negative again right away.
+        faction.get("FLF"):setPlayerStanding( 5 ) -- Small buffer to ensure it doesn't go negative again right away.
         misn.osdCreate(misn_title, {osd_desc[1]:format(destsysname), osd_adddesc, osd_desc[2]})
         misn.osdActive(2)
         hook.timer(2000, "annai")
@@ -197,10 +219,10 @@ function annai()
     for i, j in ipairs(fleetFLF) do
         if j:exists() then
             j:control()
-            j:goto(player.pos()) -- NOT the player pilot, or the task may not pop properly.
-            j:goto(waypoint2, false)
-            j:goto(waypoint1, false)
-            j:goto(waypoint0 + poss[i])
+            j:moveto(player.pos()) -- NOT the player pilot, or the task may not pop properly.
+            j:moveto(waypoint2, false)
+            j:moveto(waypoint1, false)
+            j:moveto(waypoint0 + poss[i])
         end
     end
     spawner = hook.timer(1000, "spawnbase")
@@ -251,7 +273,6 @@ function outOfRange()
 end
 
 function abort()
-    var.pop("flfbase_sysname")
     var.pop("flfbase_flfshipkilled")
     misn.finish(false)
 end

@@ -49,16 +49,18 @@ typedef enum ShipStatsType_ {
    SS_TYPE_D_EW_JUMPDETECT,   /**< Electronic warfare jump point detection modifier. */
 
    /* Launchers. */
-   SS_TYPE_D_LAUNCH_RATE,     /**< Launch rate for missiles. */  /* TODO */
-   SS_TYPE_D_LAUNCH_RANGE,    /**< Launch range for missiles. */ /* TODO */
-   SS_TYPE_D_AMMO_CAPACITY,   /**< Capacity of launchers. */     /* TODO */
-   SS_TYPE_D_LAUNCH_LOCKON,   /**< Lockon speed of launchers. */ /* TODO */
+   SS_TYPE_D_LAUNCH_RATE,     /**< Launch rate for missiles. */
+   SS_TYPE_D_LAUNCH_RANGE,    /**< Launch range for missiles. */
+   SS_TYPE_D_LAUNCH_DAMAGE,   /**< Launch damage for missiles. */
+   SS_TYPE_D_AMMO_CAPACITY,   /**< Capacity of launchers. */
+   SS_TYPE_D_LAUNCH_LOCKON,   /**< Lock-on speed of launchers. */
 
    /* Forward mounts. */
    SS_TYPE_D_FORWARD_HEAT,    /**< Heat generation for cannons. */
    SS_TYPE_D_FORWARD_DAMAGE,  /**< Damage done by cannons. */
    SS_TYPE_D_FORWARD_FIRERATE, /**< Firerate of cannons. */
    SS_TYPE_D_FORWARD_ENERGY,  /**< Energy usage of cannons. */
+   SS_TYPE_D_FORWARD_DAMAGE_AS_DISABLE, /**< Damage converted to disable. */
 
    /* Turrets. */
    SS_TYPE_D_TURRET_HEAT,     /**< Heat generation for turrets. */
@@ -66,6 +68,7 @@ typedef enum ShipStatsType_ {
    SS_TYPE_D_TURRET_TRACKING, /**< Tracking of turrets. */
    SS_TYPE_D_TURRET_FIRERATE, /**< Firerate of turrets. */
    SS_TYPE_D_TURRET_ENERGY,   /**< Energy usage of turrets. */
+   SS_TYPE_D_TURRET_DAMAGE_AS_DISABLE, /**< Damage converted to disable. */
 
    /* Nebula. */
    SS_TYPE_D_NEBULA_ABSORB_SHIELD, /**< Shield nebula resistance. */
@@ -81,10 +84,14 @@ typedef enum ShipStatsType_ {
    /*
     * A: Absolute double type data. Should be continuous.
     */
-   SS_TYPE_A_ENERGY_FLAT,      /**< Flat energy modifier (not multiplied). */
+   SS_TYPE_A_ENERGY_FLAT,       /**< Flat energy modifier (not multiplied). */
    SS_TYPE_A_ENERGY_REGEN_FLAT, /**< Flat energy regeneration modifier (not multiplied). */
-   SS_TYPE_A_CPU_MAX,          /**< Maximum CPU modifier. */
-   SS_TYPE_A_ENGINE_LIMIT,     /**< Engine's mass limit. */
+   SS_TYPE_A_SHIELD_FLAT,       /**< Flat shield modifier (not multiplied). */
+   SS_TYPE_A_SHIELD_REGEN_FLAT, /**< Flat shield regeneration modifier (not multiplied). */
+   SS_TYPE_A_ARMOUR_FLAT,       /**< Flat armour modifier (not multiplied). */
+   SS_TYPE_A_ARMOUR_REGEN_FLAT, /**< Flat armour regeneration modifier (not multiplied). */
+   SS_TYPE_A_CPU_MAX,           /**< Maximum CPU modifier. */
+   SS_TYPE_A_ENGINE_LIMIT,      /**< Engine's mass limit. */
 
    /*
     * I: Integer type data. Should be continuous.
@@ -96,7 +103,11 @@ typedef enum ShipStatsType_ {
     */
    SS_TYPE_B_INSTANT_JUMP, /**< Do not require brake or chargeup to jump. */
    SS_TYPE_B_REVERSE_THRUST, /**< Ship slows down rather than turning on reverse. */
+   SS_TYPE_B_ASTEROID_SCAN, /**< Ship can gather informations from asteroids. */
 
+   /*
+    * End of list.
+    */
    SS_TYPE_SENTINEL          /**< Sentinel for end of types. */
 } ShipStatsType;
 
@@ -158,8 +169,12 @@ typedef struct ShipStats_ {
    double cargo_mod;          /**< Cargo space multiplier. */
    double armour_mod;         /**< Armour multiplier. */
    double armour_regen_mod;   /**< Armour regeneration multiplier. */
+   double armour_flat;        /**< Armour modifier (flat). */
+   double armour_damage;      /**< Armour regeneration (flat). */
    double shield_mod;         /**< Shield multiplier. */
    double shield_regen_mod;   /**< Shield regeneration multiplier. */
+   double shield_flat;        /**< Shield modifier (flat). */
+   double shield_usage;       /**< Shield usage (flat). */
    double energy_mod;         /**< Energy multiplier. */
    double energy_regen_mod;   /**< Energy regeneration multiplier. */
    double energy_flat;        /**< Energy modifier (flat). */
@@ -185,6 +200,7 @@ typedef struct ShipStats_ {
    /* Launchers. */
    double launch_rate;     /**< Fire rate of launchers. */
    double launch_range;    /**< Range of launchers. */
+   double launch_damage;   /**< Damage of launchers. */
    double ammo_capacity;   /**< Capacity of launchers. */
    double launch_lockon;   /**< Lock on speed of launchers. */
 
@@ -193,6 +209,7 @@ typedef struct ShipStats_ {
    double fwd_damage;      /**< Damage of forward mounts. */
    double fwd_firerate;    /**< Rate of fire of forward mounts. */
    double fwd_energy;      /**< Consumption rate of forward mounts. */
+   double fwd_dam_as_dis;  /**< Damage as disable for forward mounts. */
 
    /* Destroyer/Cruiser type. */
    double tur_heat;        /**< Heat of turrets. */
@@ -200,6 +217,7 @@ typedef struct ShipStats_ {
    double tur_tracking;    /**< Tracking of turrets. */
    double tur_firerate;    /**< Rate of fire of turrets. */
    double tur_energy;      /**< Consumption rate of turrets. */
+   double tur_dam_as_dis;  /**< Damage as disable for turrets. */
 
    /* Engine limits. */
    double engine_limit_rel; /**< Engine limit modifier. */
@@ -210,6 +228,7 @@ typedef struct ShipStats_ {
    double nebu_absorb_armour; /**< Armour nebula resistance. */
    int misc_instant_jump;    /**< Do not require brake or chargeup to jump. */
    int misc_reverse_thrust;  /**< Slows down the ship instead of turning it around. */
+   int misc_asteroid_scan;   /**< Able to scan asteroids. */
    int misc_hidden_jump_detect; /**< Degree of hidden jump detection. */
 } ShipStats;
 

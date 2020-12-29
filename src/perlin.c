@@ -41,21 +41,22 @@
  */
 
 
-#include "perlin.h"
-
-#include "naev.h"
-
+/** @cond */
 #include <math.h>
 #include <stdlib.h>
-#include "nstring.h"
-
 #include "SDL.h"
 #include "SDL_thread.h"
-#include "threadpool.h"
+
+#include "naev.h"
+/** @endcond */
+
+#include "perlin.h"
 
 #include "log.h"
-#include "rng.h"
 #include "nfile.h"
+#include "nstring.h"
+#include "rng.h"
+#include "threadpool.h"
 
 
 #define SIMPLEX_SCALE 0.5f
@@ -226,7 +227,7 @@ perlin_data_t* noise_new( int dim, float hurst, float lacunarity )
 
    /* Create the buffer and map. */
    if (dim == 3) {
-      for(i=0; i<256; i++) {
+      for (i=0; i<256; i++) {
          pdata->map[i] = (unsigned char)i;
          pdata->buffer[i][0] = RNGF()-0.5;
          pdata->buffer[i][1] = RNGF()-0.5;
@@ -235,7 +236,7 @@ perlin_data_t* noise_new( int dim, float hurst, float lacunarity )
       }
    }
    else if (dim == 2) {
-      for(i=0; i<256; i++) {
+      for (i=0; i<256; i++) {
          pdata->map[i] = (unsigned char)i;
          pdata->buffer[i][0] = RNGF()-0.5;
          pdata->buffer[i][1] = RNGF()-0.5;
@@ -257,7 +258,7 @@ perlin_data_t* noise_new( int dim, float hurst, float lacunarity )
    f = 1.;
    pdata->H = hurst;
    pdata->lacunarity = lacunarity;
-   for(i=0; i<NOISE_MAX_OCTAVES; i++) {
+   for (i=0; i<NOISE_MAX_OCTAVES; i++) {
       /*exponent[i] = powf(f, -H); */
       pdata->exponent[i] = 1. / f;
       f *= lacunarity;
@@ -414,7 +415,7 @@ float noise_turbulence3( perlin_data_t* pdata, float f[3], int octaves )
    tf[2] = f[2];
 
    /* Inner loop of spectral construction, where the fractal is built */
-   for(i=0; i<octaves; i++)
+   for (i=0; i<octaves; i++)
    {
       value += ABS(noise_get3(pdata,tf)) * pdata->exponent[i];
       tf[0] *= pdata->lacunarity;
@@ -445,7 +446,7 @@ float noise_turbulence2( perlin_data_t* pdata, float f[2], int octaves )
    tf[1] = f[1];
 
    /* Inner loop of spectral construction, where the fractal is built */
-   for(i=0; i<octaves; i++)
+   for (i=0; i<octaves; i++)
    {
       value += ABS(noise_get2(pdata,tf)) * pdata->exponent[i];
       tf[0] *= pdata->lacunarity;
@@ -474,7 +475,7 @@ float noise_turbulence1( perlin_data_t* pdata, float f[1], int octaves )
    tf[0] = f[0];
 
    /* Inner loop of spectral construction, where the fractal is built */
-   for(i=0; i<octaves; i++)
+   for (i=0; i<octaves; i++)
    {
       value += ABS(noise_get1(pdata,tf)) * pdata->exponent[i];
       tf[0] *= pdata->lacunarity;
@@ -521,7 +522,7 @@ float noise_simplex1( perlin_data_t* pdata, float f[1] )
 /**
  * @brief Frees some noise data.
  *
- *    @param noise Noise data to free.
+ *    @param pdata Noise data to free.
  */
 void noise_delete( perlin_data_t* pdata )
 {
@@ -556,7 +557,7 @@ float* noise_genRadarInt( const int w, const int h, float rug )
    map         = malloc(sizeof(float)*w*h);
    if (map == NULL) {
       noise_delete( noise );
-      WARN("Out of memory!");
+      WARN(_("Out of Memory"));
       return NULL;
    }
 
@@ -660,13 +661,13 @@ float* noise_genNebulaMap( const int w, const int h, const int n, float rug )
    nebula     = malloc(sizeof(float)*w*h*n);
    if (nebula == NULL) {
       noise_delete( noise );
-      WARN("Out of memory!");
+      WARN(_("Out of Memory"));
       return NULL;
    }
 
-   /* Some debug information and time setting */
+   /* This can take a while, so show what's happening. */
    s = SDL_GetTicks();
-   DEBUG("Generating Nebula of size %dx%dx%d", w, h, n);
+   LOG(_("Generating Nebula of size %dx%dx%d"), w, h, n);
 
    /* Prepare for generation. */
    _max        = malloc( sizeof(float) * n );
@@ -712,7 +713,7 @@ float* noise_genNebulaMap( const int w, const int h, const int n, float rug )
    free(_max);
 
    /* Results */
-   DEBUG("Nebula Generated in %d ms", SDL_GetTicks() - s );
+   LOG(_("Nebula Generated in %d ms"), SDL_GetTicks() - s );
    return nebula;
 }
 
@@ -750,7 +751,7 @@ float* noise_genNebulaPuffMap( const int w, const int h, float rug )
    nebula      = malloc(sizeof(float)*w*h);
    if (nebula == NULL) {
       noise_delete( noise );
-      WARN("Out of memory!");
+      WARN(_("Out of Memory"));
       return NULL;
    }
 
