@@ -16,11 +16,6 @@
 -- Insane Businessman Part 2
 --]]
 
-lang = naev.lang()
-if lang == "es" then
-elseif lang == "de" then
-else
-
 --[[Mission Text]]--
 
 npc_name = "Mr. Crumb"
@@ -99,8 +94,6 @@ OSDtable3 = {}
 msg    = {}
 msg[1] = "MISSION FAILURE! Samson got away."
 msg[2] = "MISSION FAILURE! You killed Samson."
-
-end
 
 function create ()
 

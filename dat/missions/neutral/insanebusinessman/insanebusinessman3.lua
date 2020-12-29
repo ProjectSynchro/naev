@@ -17,12 +17,6 @@
 --]]
 
 
--- localization stuff.
-lang = naev.lang()
-if lang == "es" then
-elseif lang == "de" then
-else
-
 --[[Mission text.]]--
 
 npc_name = "Mr. Crumb"
@@ -67,9 +61,6 @@ OSDdesc21 = "Return to the %s system and confront Crumb."
 
 OSDtable1 = {}
 OSDtable2 = {}
-
-end
-
 
 -- Messages
 msg = {}

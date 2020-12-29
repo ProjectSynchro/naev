@@ -15,12 +15,6 @@
 -- Insane Businessman
 --]]
 
--- For Translations
-lang = naev.lang()
-if lang == "es" then
-elseif lang == "de" then 
-else
-
 --[[Text of mission]]--
 
 npc_name = "A Businessman"
@@ -74,8 +68,6 @@ OSDtitle = "Investigate Protesters"
 OSDdesc1 = "Go to %s in the %s system and investigate protesters on Crumb's property."
 OSDdesc2 = "Return to %s in the %s system and report what you found to Crumb."
 OSDtable = {}
-
-end
 
 function create ()
 
