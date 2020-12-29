@@ -1,6 +1,19 @@
---[[Insane Businessman ]]--
-
-
+--[[
+<?xml version='1.0' encoding='utf8'?>
+<mission name="Insane Businessman">
+  <flags>
+   <unique />
+  </flags>
+  <avail>
+   <chance>100</chance>
+   <location>Bar</location>
+   <planet>Vault</planet>
+  </avail>
+ </mission>
+--]]
+--[[
+-- Insane Businessman
+--]]
 
 -- For Translations
 lang = naev.lang()

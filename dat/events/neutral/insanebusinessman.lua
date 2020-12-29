@@ -1,6 +1,18 @@
---[[Insane Businessman ]]--
-
-
+--[[
+<?xml version='1.0' encoding='utf8'?>
+ <event name="Insane Businessman">
+  <lua>neutral/insanebusinessman</lua>
+  <flags>
+   <unique />
+  </flags>
+  <trigger>enter</trigger>
+  <chance>50</chance>
+  <cond>player.misnDone("Insane Businessman Part 3") == true and system.cur():name() == "Mason"</cond>
+ </event>
+--]]
+--[[ 
+-- Event for Insane Businessman mission.
+--]]
 
 -- For Translations
 lang = naev.lang()

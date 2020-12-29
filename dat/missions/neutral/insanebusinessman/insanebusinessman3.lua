@@ -1,5 +1,20 @@
---[[Insane Businessman Part 2]]--
-
+--[[
+<?xml version='1.0' encoding='utf8'?>
+ <mission name="Insane Businessman Part 3">
+  <flags>
+    <unique />
+  </flags>
+  <avail>
+   <chance>100</chance>
+   <location>Bar</location>
+   <planet>Vault</planet>
+   <done>Insane Businessman Part 2</done>
+  </avail>
+ </mission>
+--]]
+--[[
+-- Insane Businessman Part 3
+--]]
 
 
 -- localization stuff.

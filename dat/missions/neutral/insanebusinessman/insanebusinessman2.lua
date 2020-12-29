@@ -1,4 +1,20 @@
---[[Insane Businessman Part 2]]--
+--[[
+<?xml version='1.0' encoding='utf8'?>
+ <mission name="Insane Businessman Part 2">
+  <flags>
+    <unique />
+  </flags>
+  <avail>
+   <chance>100</chance>
+   <location>Bar</location>
+   <planet>Vault</planet>
+   <done>Insane Businessman</done>
+  </avail>
+ </mission>
+--]]
+--[[
+-- Insane Businessman Part 2
+--]]
 
 lang = naev.lang()
 if lang == "es" then
