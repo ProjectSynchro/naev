@@ -1,6 +1,3 @@
 [submodule "extras/windows/mingw-bundledlls"]
 	path = extras/windows/mingw-bundledlls
 	url = https://github.com/mpreisler/mingw-bundledlls.git
-[submodule "utils/ci/soundtrack/soundtrack-cli"]
-	path = utils/ci/soundtrack/soundtrack-cli
-	url = https://github.com/ProjectSynchro/soundcloud-cli
