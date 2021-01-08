@@ -165,9 +165,8 @@ jobs:
       - name: Build macOS Installer
         run: |
           ./source/extras/macos/bundle.py -n -s "source" -b "build" -o "$(pwd)/dist"
-          pushd dist/out
+          cd dist/out
           zip -r naev-macos.zip Naev.app/*
-          popd
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
