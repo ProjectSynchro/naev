@@ -184,6 +184,9 @@ if buildExec.disabled() == false
    if not cc.has_header('windows.h')
       naev_deps += cc.find_library('dl', required: true)
    endif
+   
+   # mkspr
+   subdir('utils/mkspr')
 
    include_dirs = include_directories(
       'src',

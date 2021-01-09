@@ -1,13 +1,10 @@
-project('mkspr', 'c')
-
-    mkspr_deps = []
-    libpng = dependency('libpng', required: true)
-    sdl2 = dependency('sdl2', required: true)
-    sdl2_image = dependency('SDL2_image', required: true)
-    mkspr_deps += [libpng, sdl2, sdl2_image]
-
-    mkspr_bin = executable(
-            'mkspr',
-            'main.c',
-            dependencies: mkspr_deps
-            )
+mkspr = executable(
+        'mkspr',
+        'main.c',
+        dependencies: [
+            dependency('SDL2_image', required: true), 
+            dependency('sdl2', required: true), 
+            dependency('libpng', required: true)
+            ],
+        build_by_default: false
+        )
