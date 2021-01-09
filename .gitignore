@@ -26,9 +26,7 @@ core
 po/credits.pot
 po/naev.pot
 
-utils/mkspr
 utils/mkspr/builddir/
-utils/mkspr.*
 
 /.cproject
 /.project
