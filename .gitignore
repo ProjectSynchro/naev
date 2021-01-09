@@ -3,8 +3,6 @@
 *.a
 *.pyc
 .hgignore
-mkspr
-mkspr.exe
 build/*
 naev_csv
 naikari_csv
@@ -17,9 +15,7 @@ stdout.txt
 *.pbxuser
 *.mode1v3
 Info.plist
-extras/steam/2fa/2fa.txt
-extras/steam/content
-extras/steam/output
+utils/ci/steam/2fa/2fa.txt
 extras/windows/installer/bin
 dist/*
 dat/VERSION
@@ -29,6 +25,10 @@ Naikari.app
 core
 po/credits.pot
 po/naev.pot
+
+utils/mkspr
+utils/mkspr/builddir/
+utils/mkspr.*
 
 /.cproject
 /.project
