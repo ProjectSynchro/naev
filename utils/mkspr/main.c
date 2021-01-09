@@ -74,9 +74,15 @@ int main(int argc, char* argv[])
 	
 	/* Init SDL */
 	if (SDL_Init(SDL_INIT_VIDEO)) ERR("Initializing SDL: %s", SDL_GetError());
+
 	/* Create the window */
-	/* temp = SDL_SetVideoMode( 320, 240, 0, SDL_NOFRAME ); */
-	/* if (temp == NULL) ERR("Initializing Video Surface: %s", SDL_GetError()); */
+	SDL_Window *window = SDL_CreateWindow("mkspr",
+							SDL_WINDOWPOS_UNDEFINED,
+							SDL_WINDOWPOS_UNDEFINED,
+							320, 240,
+							SDL_WINDOW_OPENGL);
+
+	if (window == NULL) ERR("Initializing Video Surface: %s", SDL_GetError());
 
 	/* open ram for the images */
 	load = malloc(sizeof(SDL_Surface*)*(ws*hs));
