@@ -264,6 +264,31 @@ jobs:
           name: ${{ matrix.image }}-${{ github.sha }}-install-log
           path: ${{ github.workspace }}/build/meson-logs/meson-log.txt
 
+
+  "FreeBSD_Compile_Naev":
+    needs: "Package_Source"
+    runs-on: macos-latest
+
+    steps:
+      - name: Get Source
+        uses: actions/download-artifact@v1
+        with:
+          name: naev-dist-${{ github.sha }}
+
+      - name: Test in FreeBSD
+        id: test
+        uses: vmactions/freebsd-vm@v0.1.0
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y curl
+          run: |
+            pwd
+            ls -lah
+            whoami
+            env
+            freebsd-version
+
   "AppImage_Compile_Naev":
     needs: [Package_Source, Linux_Compile_Naev]
     runs-on: ubuntu-latest
