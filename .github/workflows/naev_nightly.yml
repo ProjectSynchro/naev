@@ -251,9 +251,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - releasetype: github
+#          - releasetype: github
           - releasetype: steam
-          - releasetype: itch
+#          - releasetype: itch
 
     runs-on: ubuntu-latest
 
