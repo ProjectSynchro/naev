@@ -1,4 +1,4 @@
-on: [push, pull_request]
+on: [push]
 #on:
 #  repository_dispatch:
 #    types: manual-nightly
