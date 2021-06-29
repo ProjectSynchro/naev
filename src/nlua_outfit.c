@@ -17,6 +17,7 @@
 #include "nlua_outfit.h"
 
 #include "log.h"
+#include "nlua_pilot.h"
 #include "nlua_tex.h"
 #include "nluadef.h"
 #include "rng.h"
@@ -31,11 +32,15 @@ static int outfitL_nameRaw( lua_State *L );
 static int outfitL_type( lua_State *L );
 static int outfitL_typeBroad( lua_State *L );
 static int outfitL_cpu( lua_State *L );
+static int outfitL_mass( lua_State *L );
 static int outfitL_slot( lua_State *L );
+static int outfitL_limit( lua_State *L );
 static int outfitL_icon( lua_State *L );
 static int outfitL_price( lua_State *L );
 static int outfitL_description( lua_State *L );
 static int outfitL_unique( lua_State *L );
+static int outfitL_getShipStat( lua_State *L );
+static int outfitL_weapStats( lua_State *L );
 static const luaL_Reg outfitL_methods[] = {
    { "__tostring", outfitL_name },
    { "__eq", outfitL_eq },
@@ -45,11 +50,15 @@ static const luaL_Reg outfitL_methods[] = {
    { "type", outfitL_type },
    { "typeBroad", outfitL_typeBroad },
    { "cpu", outfitL_cpu },
+   { "mass", outfitL_mass },
    { "slot", outfitL_slot },
+   { "limit", outfitL_limit },
    { "icon", outfitL_icon },
    { "price", outfitL_price },
    { "description", outfitL_description },
    { "unique", outfitL_unique },
+   { "shipstat", outfitL_getShipStat },
+   { "weapstats", outfitL_weapStats },
    {0,0}
 }; /**< Outfit metatable methods. */
 
@@ -334,14 +343,33 @@ static int outfitL_cpu( lua_State *L )
 
 
 /**
+ * @brief Gets the mass of an outfit.
+ *
+ * @usage print( o:mass() ) -- Prints the mass of an outfit
+ *
+ *    @luatparam Outfit o Outfit to get information of.
+ *    @luatreturn string The amount of mass the outfit uses.
+ * @luafunc mass
+ */
+static int outfitL_mass( lua_State *L )
+{
+   Outfit *o = luaL_validoutfit(L,1);
+   lua_pushnumber(L, o->mass);
+   return 1;
+}
+
+
+/**
  * @brief Gets the slot name, size and property of an outfit.
  *
  * @usage slot_name, slot_size, slot_prop = o:slot() -- Gets an outfit's slot info
  *
  *    @luatparam Outfit o Outfit to get information of.
  *    @luatreturn string Human readable name (in English).
- *    @luatreturn string Human readable size.
- *    @luatreturn string Human readable property.
+ *    @luatreturn string Human readable size (in English).
+ *    @luatreturn string Human readable property (in English).
+ *    @luatreturn boolean Slot is required.
+ *    @luatreturn boolean Slot is exclusive.
  * @luafunc slot
  */
 static int outfitL_slot( lua_State *L )
@@ -350,8 +378,27 @@ static int outfitL_slot( lua_State *L )
    lua_pushstring(L, outfit_slotName(o));
    lua_pushstring(L, outfit_slotSize(o));
    lua_pushstring(L, sp_display( o->slot.spid ));
+   lua_pushboolean(L, sp_required( o->slot.spid ));
+   lua_pushboolean(L, sp_exclusive( o->slot.spid ));
+   return 5;
+}
 
-   return 3;
+
+/**
+ * @brief Gets the limit string of the outfit. Only one outfit can be equipped at the same time for each limit string.
+ *
+ *    @luatparam Outfit o Outfit to get information of.
+ *    @luatreturn string|nil Limit string or nil if not applicable.
+ * @luafunc limit
+ */
+static int outfitL_limit( lua_State *L )
+{
+   Outfit *o = luaL_validoutfit(L,1);
+   if (o->limit)
+      lua_pushstring(L,o->limit);
+   else
+      lua_pushnil(L);
+   return 1;
 }
 
 
@@ -421,3 +468,125 @@ static int outfitL_unique( lua_State *L )
    lua_pushboolean(L, outfit_isProp(o, OUTFIT_PROP_UNIQUE));
    return 1;
 }
+
+
+/**
+ * @brief Gets a shipstat from an Outfit by name, or a table containing all the ship stats if not specified.
+ *
+ *    @luatparam Outfit o Outfit to get ship stat of.
+ *    @luatparam[opt=nil] string name Name of the ship stat to get.
+ *    @luatparam[opt=false] boolean internal Whether or not to use the internal representation.
+ *    @luareturn Value of the ship stat or a tale containing all the ship stats if name is not specified.
+ * @luafunc shipstat
+ */
+static int outfitL_getShipStat( lua_State *L )
+{
+   ShipStats ss;
+   Outfit *o = luaL_validoutfit(L,1);
+   ss_statsInit( &ss );
+   ss_statsModFromList( &ss, o->stats );
+   const char *str = luaL_optstring(L,2,NULL);
+   int internal      = lua_toboolean(L,3);
+   ss_statsGetLua( L, &ss, str, internal );
+   return 1;
+}
+
+
+/**
+ * @brief Computes the DPS and EPS for weapons.
+ *
+ *    @luatparam Outfit o Outfit to compute for.
+ *    @luatparam[opt=nil] Pilot p Pilot to use ship stats when computing.
+ *    @luatreturn number DPS of the outfit.
+ *    @luatreturn number EPS of the outfit.
+ * @luafunc weapstats
+ */
+static int outfitL_weapStats( lua_State *L )
+{
+   double eps, dps, shots;
+   double mod_energy, mod_damage, mod_shots;
+   const Damage *dmg;
+   Outfit *o = luaL_validoutfit( L, 1 );
+   Pilot *p = (lua_ispilot(L,2)) ? luaL_validpilot(L,2) : NULL;
+
+   /* Just return 0 for non-wapons. */
+   if (o->slot.type != OUTFIT_SLOT_WEAPON) {
+      lua_pushnumber( L, 0. );
+      lua_pushnumber( L, 0. );
+      return 2;
+   }
+
+   /* Special case beam weapons .*/
+   if (outfit_isBeam(o)) {
+      if (p) {
+         /* Special case due to continuous fire. */
+         if (o->type == OUTFIT_TYPE_BEAM) {
+            mod_energy = p->stats.fwd_energy;
+            mod_damage = p->stats.fwd_damage;
+            mod_shots  = 1. / p->stats.fwd_firerate;
+         }
+         else {
+            mod_energy = p->stats.tur_energy;
+            mod_damage = p->stats.tur_damage;
+            mod_shots  = 1. / p->stats.tur_firerate;
+         }
+      }
+      else {
+         mod_energy = 1.;
+         mod_damage = 1.;
+         mod_shots = 1.;
+      }
+      shots = outfit_duration(o);
+      mod_shots = shots / (shots + mod_shots * outfit_delay(o));
+      dps = mod_shots * mod_damage * outfit_damage(o)->damage;
+      eps = mod_shots * mod_energy * outfit_energy(o);
+      lua_pushnumber( L, dps );
+      lua_pushnumber( L, eps );
+      return 2;
+   }
+
+   if (p) {
+      switch (o->type) {
+         case OUTFIT_TYPE_BOLT:
+            mod_energy = p->stats.fwd_energy;
+            mod_damage = p->stats.fwd_damage;
+            mod_shots  = 1. / p->stats.fwd_firerate;
+            break;
+         case OUTFIT_TYPE_TURRET_BOLT:
+            mod_energy = p->stats.tur_energy;
+            mod_damage = p->stats.tur_damage;
+            mod_shots  = 1. / p->stats.tur_firerate;
+            break;
+         case OUTFIT_TYPE_LAUNCHER:
+         case OUTFIT_TYPE_TURRET_LAUNCHER:
+            mod_energy = 1.;
+            mod_damage = p->stats.launch_damage;
+            mod_shots  = 1. / p->stats.launch_rate;
+            break;
+         case OUTFIT_TYPE_BEAM:
+         case OUTFIT_TYPE_TURRET_BEAM:
+         default:
+            return 0;
+      }
+   }
+   else {
+      mod_energy = 1.;
+      mod_damage = 1.;
+      mod_shots = 1.;
+   }
+
+   shots = 1. / (mod_shots * outfit_delay(o));
+   /* Special case: Ammo-based weapons. */
+   if (outfit_isLauncher(o))
+      dmg = outfit_damage(o->u.lau.ammo);
+   else
+      dmg = outfit_damage(o);
+   dps = shots * mod_damage * dmg->damage;
+   eps = shots * mod_energy * MAX( outfit_energy(o), 0. );
+
+   lua_pushnumber( L, dps );
+   lua_pushnumber( L, eps );
+   return 2;
+}
+
+

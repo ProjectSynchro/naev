@@ -9,6 +9,7 @@
 
 
 #include "nxml.h"
+#include "nlua.h"
 
 
 /**
@@ -41,11 +42,15 @@ typedef enum ShipStatsType_ {
 
    /* Freighter-type. */
    SS_TYPE_D_JUMP_DELAY,      /**< Modulates the time that passes during a hyperspace jump. */
+   SS_TYPE_D_LAND_DELAY,      /**< Modulates the time that passes during landing. */
    SS_TYPE_D_CARGO_INERTIA,   /**< Modifies the effect of cargo_mass. */
 
-   /* Stealth. */
-   SS_TYPE_D_EW_HIDE,         /**< Electronic warfare hide modifier. */
+   /* Electronic warfare. */
+   SS_TYPE_D_EW_HIDE,         /**< Electronic warfare hide modifier. (affects ew_detection) */
+   SS_TYPE_D_EW_EVADE,        /**< Electronic warfare evasion modifier. (affects ew_evasion) */
+   SS_TYPE_D_EW_STEALTH,      /**< Electronic warfare stealth modifier. (affects ew_stealth) */
    SS_TYPE_D_EW_DETECT,       /**< Electronic warfare detection modifier. */
+   SS_TYPE_D_EW_TRACK,        /**< Electronic warfare tracking modifier. */
    SS_TYPE_D_EW_JUMPDETECT,   /**< Electronic warfare jump point detection modifier. */
 
    /* Launchers. */
@@ -54,6 +59,15 @@ typedef enum ShipStatsType_ {
    SS_TYPE_D_LAUNCH_DAMAGE,   /**< Launch damage for missiles. */
    SS_TYPE_D_AMMO_CAPACITY,   /**< Capacity of launchers. */
    SS_TYPE_D_LAUNCH_LOCKON,   /**< Lock-on speed of launchers. */
+   SS_TYPE_D_LAUNCH_RELOAD,   /**< Regeneration rate of launcher ammo. */
+
+   /* Fighter Bays. */
+   SS_TYPE_D_FBAY_DAMAGE,     /**< Fighter bay fighter damage bonus (all weapons). */
+   SS_TYPE_D_FBAY_HEALTH,     /**< Fighter bay fighter health bonus (shield and armour). */
+   SS_TYPE_D_FBAY_MOVEMENT,   /**< Fighter bay fighter movement bonus (turn, thrust, and speed). */
+   SS_TYPE_D_FBAY_CAPACITY,   /**< Capacity of fighter bays. */
+   SS_TYPE_D_FBAY_RATE,       /**< Launch rate for fighter bays. */
+   SS_TYPE_D_FBAY_RELOAD,     /**< Regeneration rate of fighters. */
 
    /* Forward mounts. */
    SS_TYPE_D_FORWARD_HEAT,    /**< Heat generation for cannons. */
@@ -80,23 +94,41 @@ typedef enum ShipStatsType_ {
    SS_TYPE_D_CREW,            /**< Ship crew. */
    SS_TYPE_D_MASS,            /**< Ship mass. */
    SS_TYPE_D_ENGINE_LIMIT_REL, /**< Modifier for the ship's engine limit. */
+   SS_TYPE_D_LOOT_MOD,        /**< Affects boarding rewards. */
+   SS_TYPE_D_TIME_MOD,        /**< Time dilation modifier. */
+   SS_TYPE_D_TIME_SPEEDUP,    /**< Makes the pilot operate at a higher dt. */
+   SS_TYPE_D_COOLDOWN_TIME,   /**< Speeds up or slows down the cooldown time. */
+   SS_TYPE_D_JUMP_DISTANCE,   /**< Modifies the distance from a jump point at which the pilot can jump. */
 
    /*
     * A: Absolute double type data. Should be continuous.
     */
-   SS_TYPE_A_ENERGY_FLAT,       /**< Flat energy modifier (not multiplied). */
+   /* Movement. */
+   SS_TYPE_A_THRUST,           /**< Thrust modifier. */
+   SS_TYPE_A_TURN,             /**< Turn modifier (in deg/s). */
+   SS_TYPE_A_SPEED,            /**< Speed modifier. */
+   /* Health. */
+   SS_TYPE_A_ENERGY,            /**< Energy modifier. */
+   SS_TYPE_A_ENERGY_REGEN,      /**< Energy regeneration modifier. */
    SS_TYPE_A_ENERGY_REGEN_FLAT, /**< Flat energy regeneration modifier (not multiplied). */
-   SS_TYPE_A_SHIELD_FLAT,       /**< Flat shield modifier (not multiplied). */
+   SS_TYPE_A_ENERGY_LOSS,       /**< Flat energy modifier (not multiplied) and applied linearly. */
+   SS_TYPE_A_SHIELD,            /**< Shield modifier. */
+   SS_TYPE_A_SHIELD_REGEN,      /**< Shield regeneration modifier. */
    SS_TYPE_A_SHIELD_REGEN_FLAT, /**< Flat shield regeneration modifier (not multiplied). */
-   SS_TYPE_A_ARMOUR_FLAT,       /**< Flat armour modifier (not multiplied). */
+   SS_TYPE_A_ARMOUR,            /**< Armour modifier. */
+   SS_TYPE_A_ARMOUR_REGEN,      /**< Armour regeneration modifier. */
    SS_TYPE_A_ARMOUR_REGEN_FLAT, /**< Flat armour regeneration modifier (not multiplied). */
+   /* Misc. */
    SS_TYPE_A_CPU_MAX,           /**< Maximum CPU modifier. */
    SS_TYPE_A_ENGINE_LIMIT,      /**< Engine's mass limit. */
+   SS_TYPE_A_ABSORB,            /**< Damage absorption. */
 
    /*
     * I: Integer type data. Should be continuous.
     */
-   SS_TYPE_I_HIDDEN_JUMP_DETECT, /**< Hidden jump detection. */
+   SS_TYPE_I_HIDDEN_JUMP_DETECT,/**< Hidden jump detection. */
+   SS_TYPE_I_FUEL,              /**< Fuel bonus. */
+   SS_TYPE_I_CARGO,             /**< Cargo bonus. */
 
    /*
     * B: Boolean type data. Should be continuous.
@@ -153,42 +185,49 @@ typedef struct ShipStatList_ {
  *  1 or 0 values wher 1 indicates property is set.
  */
 typedef struct ShipStats_ {
-#if 0
-   /* Corvette type. */
-   double afterburner_energy; /**< Energy used by afterburner. */
-
-   /* Carrier type. */
-   double fighterbay_cpu; /**< CPU usage by fighter bays. */
-   double fighterbay_rate; /**< Launch rate of fighter bay. */
-#endif
-
-   /* General */
+   /* Movement. */
+   double speed;              /**< Speed modifier. */
+   double turn;               /**< Turn modifier. */
+   double thrust;             /**< Thrust modifier. */
    double speed_mod;          /**< Speed multiplier. */
    double turn_mod;           /**< Turn multiplier. */
    double thrust_mod;         /**< Thrust multiplier. */
-   double cargo_mod;          /**< Cargo space multiplier. */
-   double armour_mod;         /**< Armour multiplier. */
-   double armour_regen_mod;   /**< Armour regeneration multiplier. */
-   double armour_flat;        /**< Armour modifier (flat). */
-   double armour_damage;      /**< Armour regeneration (flat). */
-   double shield_mod;         /**< Shield multiplier. */
-   double shield_regen_mod;   /**< Shield regeneration multiplier. */
-   double shield_flat;        /**< Shield modifier (flat). */
-   double shield_usage;       /**< Shield usage (flat). */
+
+   /* Health. */
+   double energy;             /**< Energy modifier. */
+   double energy_regen;       /**< Energy regeneration modifier. */
    double energy_mod;         /**< Energy multiplier. */
    double energy_regen_mod;   /**< Energy regeneration multiplier. */
-   double energy_flat;        /**< Energy modifier (flat). */
    double energy_usage;       /**< Energy usage (flat). */
+   double energy_loss;        /**< Energy modifier (flat and linear). */
+   double shield;             /**< Shield modifier. */
+   double shield_regen;       /**< Shield regeneration modifier. */
+   double shield_mod;         /**< Shield multiplier. */
+   double shield_regen_mod;   /**< Shield regeneration multiplier. */
+   double shield_usage;       /**< Shield usage (flat). */
+   double armour;             /**< Armour modifier. */
+   double armour_regen;       /**< Armour regeneration modifier. */
+   double armour_mod;         /**< Armour multiplier. */
+   double armour_regen_mod;   /**< Armour regeneration multiplier. */
+   double armour_damage;      /**< Armour regeneration (flat). */
+
+   /* General */
+   double cargo_mod;          /**< Cargo space multiplier. */
    double cpu_mod;            /**< CPU multiplier. */
    double cpu_max;            /**< CPU modifier. */
+   double absorb;             /**< Flat damage absorption. */
 
    /* Freighter-type. */
    double jump_delay;      /**< Modulates the time that passes during a hyperspace jump. */
+   double land_delay;      /**< Modulates the time that passes during landing. */
    double cargo_inertia;   /**< Lowers the effect of cargo mass. */
 
    /* Stealth. */
    double ew_hide;         /**< Electronic warfare hide modifier. */
+   double ew_evade;
+   double ew_stealth;
    double ew_detect;       /**< Electronic warfare detection modifier. */
+   double ew_track;
    double ew_jump_detect;  /**< Electronic warfare jump point detection modifier. */
 
    /* Military type. */
@@ -203,6 +242,15 @@ typedef struct ShipStats_ {
    double launch_damage;   /**< Damage of launchers. */
    double ammo_capacity;   /**< Capacity of launchers. */
    double launch_lockon;   /**< Lock on speed of launchers. */
+   double launch_reload;   /**< Reload rate of launchers. */
+
+   /* Fighter bays. */
+   double fbay_damage;     /**< Fighter bay fighter damage (all weapons). */
+   double fbay_health;     /**< Fighter bay fighter health (armour and shield). */
+   double fbay_movement;   /**< Fighter bay fighter movement (thrust, turn, and speed). */
+   double fbay_capacity;   /**< Capacity of fighter bays. */
+   double fbay_rate;       /**< Launch rate of fighter bays. */
+   double fbay_reload;     /**< Reload rate of fighters. */
 
    /* Fighter/Corvette type. */
    double fwd_heat;        /**< Heat of forward mounts. */
@@ -230,6 +278,13 @@ typedef struct ShipStats_ {
    int misc_reverse_thrust;  /**< Slows down the ship instead of turning it around. */
    int misc_asteroid_scan;   /**< Able to scan asteroids. */
    int misc_hidden_jump_detect; /**< Degree of hidden jump detection. */
+   int fuel;                  /**< Maximum fuel modifier. */
+   int cargo;                 /**< Maximum cargo modifier. */
+   double loot_mod;           /**< Boarding loot reward bonus. */
+   double time_mod;           /**< Time dilation modifier. */
+   double time_speedup;       /**< Makes the pilot operate at higher speeds. */
+   double cooldown_time;      /**< Modifies cooldown time. */
+   double jump_distance;      /**< Modifies how far the pilot can jump from the jump point. */
 } ShipStats;
 
 
@@ -248,8 +303,9 @@ void ss_free( ShipStatList *ll );
  * Manipulation
  */
 int ss_statsInit( ShipStats *stats );
-int ss_statsModSingle( ShipStats *stats, const ShipStatList* list, const ShipStats *amount );
-int ss_statsModFromList( ShipStats *stats, const ShipStatList* list, const ShipStats *amount );
+int ss_statsMerge( ShipStats *dest, const ShipStats *src );
+int ss_statsModSingle( ShipStats *stats, const ShipStatList* list );
+int ss_statsModFromList( ShipStats *stats, const ShipStatList* list );
 
 /*
  * Lookup.
@@ -259,7 +315,14 @@ size_t ss_offsetFromType( ShipStatsType type );
 ShipStatsType ss_typeFromName( const char *name );
 int ss_statsListDesc( const ShipStatList *ll, char *buf, int len, int newline );
 int ss_statsDesc( const ShipStats *s, char *buf, int len, int newline );
-int ss_csv( const ShipStats *s, char *buf, int len );
+
+/*
+ * Manipulation.
+ */
+int ss_statsSet( ShipStats *s, const char *name, double value, int overwrite );
+double ss_statsGet( const ShipStats *s, const char *name );
+int ss_statsGetLua( lua_State *L, const ShipStats *s, const char *name, int internal );
+int ss_statsGetLuaTable( lua_State *L, const ShipStats *s, int internal );
 
 
 #endif /* SHIPSTATS_H */

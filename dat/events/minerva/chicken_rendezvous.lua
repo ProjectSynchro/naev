@@ -18,7 +18,7 @@
 -- Triggered from other missions.
 --]]
 local vn = require 'vn'
-local minerva = require "minerva"
+local minerva = require 'campaigns.minerva'
 local love_shaders = require "love_shaders"
 
 function create()
@@ -37,7 +37,7 @@ function create()
    t(_([[The terminal glides around the maze that is Minerva station while its head rotates backwards to face you.
 "I BELIEVE YOU WILL BE VERY IMPRESSED WITH THE ACCOMMODATIONS AT THE SPA. THE RENOVATIONS TOOK ALMOST A CYCLE AND IT IS MORE BEAUTIFUL THAN EVER."]]))
    t(_([["TODAY THE WATER IS INFUSED WITH NANOBOTS THAT SPECIALIZE IN ANTI-AGING, AFTER A DIP YOU WILL LOOK YOUNGER THAN EVER. THESE HAVE BEEN DEVELOPED BY THE ZA'LEK AND SHOULD EVEN SURPASS THE ANTI-AGING PROPERTIES OF THE SOROMID SKIN LEECHES, WITHOUT EVEN CLOUDING THE WATER."]]))
-   vn.na(_("As you walk, you feel that the sorrounding decorations are starting to get fancier, you must be nearing the VIP area."))
+   vn.na(_("As you walk, you feel that the surrounding decorations are starting to get fancier, you must be nearing the VIP area."))
    t(_([["FURTHERMORE, CYBORG CHICKEN WILL BE JOINING YOU IN THE SPA. DO NOT WORRY, HIS CYBORG IMPLEMENTS ARE ALL WATER-PROOF UNLIKE MY BODY. MAKE SURE TO MAKE MOST OF THIS ONCE IN A LIFETIME OPPORTUNITY."]]))
    t(_([[The terminal stops moving in front of a airlock encrusted with what look to be diamonds on a gold enamel.
 "WE HAVE REACHED OUR DESTINATION. PLEASE ENJOY YOURSELF."]]))
@@ -172,8 +172,8 @@ Kex slides out of the water, ruffles his feather and fades into the steam. You h
    vn.run()
 
    local logidstr = minerva.log.kex.idstr
-   shiplog.createLog( logidstr, minerva.log.kex.logname, minerva.log.kex.logtype, true )
-   shiplog.appendLog( logidstr, _("You found out that Cyborg Chicken is Kex, Maikki's father. He told you of a spot you can meet up with him on Minerva station.") )
+   shiplog.create( logidstr, minerva.log.kex.logname, minerva.log.kex.logtype )
+   shiplog.append( logidstr, _("You found out that Cyborg Chicken is Kex, Maikki's father. He told you of a spot you can meet up with him on Minerva station.") )
 
    evt.finish(true)
 end

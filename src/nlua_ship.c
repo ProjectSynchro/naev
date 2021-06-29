@@ -25,6 +25,12 @@
 #include "slots.h"
 
 
+/*
+ * Prototypes.
+ */
+static OutfitSlot* ship_outfitSlotFromID( const Ship *s, int id );
+
+
 /* Ship metatable methods. */
 static int shipL_eq( lua_State *L );
 static int shipL_get( lua_State *L );
@@ -34,11 +40,13 @@ static int shipL_baseType( lua_State *L );
 static int shipL_class( lua_State *L );
 static int shipL_slots( lua_State *L );
 static int shipL_getSlots( lua_State *L );
+static int shipL_fitsSlot( lua_State *L );
 static int shipL_CPU( lua_State *L );
 static int shipL_gfxTarget( lua_State *L );
 static int shipL_gfx( lua_State *L );
 static int shipL_price( lua_State *L );
 static int shipL_description( lua_State *L );
+static int shipL_getShipStat( lua_State *L );
 static const luaL_Reg shipL_methods[] = {
    { "__tostring", shipL_name },
    { "__eq", shipL_eq },
@@ -49,11 +57,13 @@ static const luaL_Reg shipL_methods[] = {
    { "class", shipL_class },
    { "slots", shipL_slots },
    { "getSlots", shipL_getSlots },
+   { "fitsSlot", shipL_fitsSlot },
    { "cpu", shipL_CPU },
    { "price", shipL_price },
    { "gfxTarget", shipL_gfxTarget },
    { "gfx", shipL_gfx },
    { "description", shipL_description },
+   { "shipstat", shipL_getShipStat },
    {0,0}
 }; /**< Ship metatable methods. */
 
@@ -357,7 +367,7 @@ static int shipL_slots( lua_State *L )
  * @usage for i, v in ipairs( ship.getSlots( ship.get("Llama") ) ) do print(v["type"]) end
  *
  *    @luaparam s Ship to get slots of
- *    @luareturn A table of tables with slot properties string "size", string "type", and string "property".
+ *    @luareturn A table of tables with slot properties string "size", string "type", string "property", boolean "required", and boolean "exclusive".
  *               (Strings are English.)
  * @luafunc getSlots
  */
@@ -368,7 +378,10 @@ static int shipL_getSlots( lua_State *L )
    ShipOutfitSlot *sslot;
    Ship *s = luaL_validship(L,1);
    char *outfit_types[] = {"structure", "utility", "weapon"};
-   ShipOutfitSlot *outfit_arrays[] = {s->outfit_structure, s->outfit_utility, s->outfit_weapon};
+   ShipOutfitSlot *outfit_arrays[] = {
+         s->outfit_structure,
+         s->outfit_utility,
+         s->outfit_weapon };
 
    lua_newtable(L);
    k=1;
@@ -393,6 +406,14 @@ static int shipL_getSlots( lua_State *L )
          lua_pushstring( L, sp_display(slot->spid)); /* value */
          lua_rawset(L, -3); /* table[key] = value */
 
+         lua_pushstring(L, "required"); /* key */
+         lua_pushboolean( L, sp_required(slot->spid)); /* value */
+         lua_rawset(L, -3); /* table[key] = value */
+
+         lua_pushstring(L, "exclusive"); /* key */
+         lua_pushboolean( L, sp_exclusive(slot->spid)); /* value */
+         lua_rawset(L, -3); /* table[key] = value */
+
          if (sslot->data != NULL) {
             lua_pushstring(L, "outfit"); /* key */
             lua_pushoutfit(L, sslot->data); /* value*/
@@ -404,7 +425,44 @@ static int shipL_getSlots( lua_State *L )
    }
 
    return 1;
+}
 
+
+static OutfitSlot* ship_outfitSlotFromID( const Ship *s, int id )
+{
+   ShipOutfitSlot *outfit_arrays[] = {
+         s->outfit_structure,
+         s->outfit_utility,
+         s->outfit_weapon };
+   int i, j, k;
+
+   /* TODO no loop. */
+   k=1;
+   for (i=0; i<3 ; i++)
+      for (j=0; j<array_size(outfit_arrays[i]) ; j++)
+         if (k++==id)
+            return &outfit_arrays[i][j].slot;
+   return NULL;
+}
+
+
+/**
+ * @brief Checks to see if an outfit fits a ship slot.
+ *
+ *    @luatparam Ship s Ship to check.
+ *    @luatparam number id ID of the slot to check (index in getSlots table).
+ *    @luatparam Outfit o Outfit to check to see if it fits in the slot.
+ *    @luatreturn boolean WHether or not the outfit fits the slot.
+ * @luafunc fitsSlot
+ */
+static int shipL_fitsSlot( lua_State *L )
+{
+   Ship *s     = luaL_validship(L,1);
+   int id      = luaL_checkinteger(L,2);
+   Outfit *o   = luaL_validoutfit(L,3);
+   OutfitSlot *os = ship_outfitSlotFromID( s, id );
+   lua_pushboolean( L, outfit_fitsSlot( o, os ) );
+   return 1;
 }
 
 
@@ -419,12 +477,7 @@ static int shipL_getSlots( lua_State *L )
  */
 static int shipL_CPU( lua_State *L )
 {
-   Ship *s;
-
-   /* Get the ship. */
-   s  = luaL_validship(L,1);
-
-   /* Get CPU. */
+   Ship *s = luaL_validship(L,1);
    lua_pushnumber(L, s->cpu);
    return 1;
 }
@@ -522,9 +575,26 @@ static int shipL_gfx( lua_State *L )
  */
 static int shipL_description( lua_State *L )
 {
-   Ship *s;
-   s = luaL_validship(L,1);
+   Ship *s = luaL_validship(L,1);
    lua_pushstring(L, s->description);
    return 1;
 }
 
+
+/**
+ * @brief Gets a shipstat from an Ship by name, or a table containing all the ship stats if not specified.
+ *
+ *    @luatparam Ship s Ship to get ship stat of.
+ *    @luatparam[opt=nil] string name Name of the ship stat to get.
+ *    @luatparam[opt=false] boolean internal Whether or not to use the internal representation.
+ *    @luareturn Value of the ship stat or a tale containing all the ship stats if name is not specified.
+ * @luafunc shipstat
+ */
+static int shipL_getShipStat( lua_State *L )
+{
+   Ship *s           = luaL_validship(L,1);
+   const char *str   = luaL_optstring(L,2,NULL);
+   int internal      = lua_toboolean(L,3);
+   ss_statsGetLua( L, &s->stats_array, str, internal );
+   return 1;
+}

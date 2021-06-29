@@ -1,5 +1,5 @@
 project('naev', 'c',
-   version : '0.9.0-alpha',
+   version : '0.9.0-alpha.1',
    default_options : [
       'warning_level=2',
       'optimization=g',
@@ -67,30 +67,6 @@ if buildExec.disabled() == false
 
    ### Hard deps (required: true)
 
-   csparse = dependency('', required: false)
-   if 'SuiteSparse' not in get_option('force_fallback_for')
-      csparse_names = ['csparse', 'cxsparse']
-      foreach n : csparse_names
-         csparse = cc.find_library(n, required: false, has_headers: ['suitesparse/cs.h'])
-         if csparse.found()
-            config_data.set10('HAVE_SUITESPARSE_CS_H', true)
-            break
-         endif
-         csparse = cc.find_library(n, required: false, has_headers: ['cs.h'])
-         if csparse.found()
-            break
-         endif
-      endforeach
-   endif
-
-   if not csparse.found()
-      csparse = dependency(
-         'SuiteSparse',
-         fallback: ['SuiteSparse', 'CSparse_dep'],
-         required: true)
-   endif
-   naev_deps += csparse
-
    naev_deps += cc.find_library('m', required : false)
 
    sdl = dependency('sdl2', required: true)
@@ -111,15 +87,17 @@ if buildExec.disabled() == false
          dependencies: dependency('libpng', required: true),
          compile_args: '-DNOLOGPRINTFCONSOLE',
          link_args: '-DNOLOGPRINTFCONSOLE'),
-      # Transitive dependency, probably can/should be marked as required after adding it to our naev-linux containers..
-      dependency('libwebp', required: false),
+      dependency('libwebp', required: true),
    ]
 
    # Lua
    useLuaJIT = get_option('luajit')
    lua = dependency('', required: false)
    if useLuaJIT.disabled() == false
-      lua = dependency('luajit', fallback: ['luajit', 'luajit_dep'], required: useLuaJIT)
+      # FIXME: Why doesn't `meson configure --force-fallback-for=luajit` force a fallback in
+      # dependency('luajit', fallback: ['luajit', 'luajit_dep'], required: useLuaJIT), even if useLuaJIT is "enabled"?
+      HACK_dep_name = 'luajit' in get_option('force_fallback_for') ? 'meson_seriously_please_fall_back' : 'luajit'
+      lua = dependency(HACK_dep_name, fallback: ['luajit', 'luajit_dep'], required: useLuaJIT)
    endif
    config_data.set10('HAVE_LUAJIT', lua.found())
    summary('LuaJIT', lua.found(), section: 'Features', bool_yn: true)
@@ -129,6 +107,34 @@ if buildExec.disabled() == false
    endif
 
    naev_deps += lua
+
+   # Linear Algebra
+
+   use_system_glpk = ('glpk' not in get_option('force_fallback_for'))
+   use_system_csparse = ('SuiteSparse' not in get_option('force_fallback_for'))
+
+   if use_system_glpk
+      system_glpk = cc.find_library('glpk', required: false, has_headers: ['glpk.h'])
+      use_system_glpk = system_glpk.found()
+   endif
+   naev_deps += use_system_glpk ? system_glpk : subproject('glpk').get_variable('glpk_dep')
+
+   if use_system_csparse
+      foreach csparse_name : ['csparse', 'cxsparse']
+         system_csparse = cc.find_library(csparse_name, required: false, has_headers: ['suitesparse/cs.h'])
+         use_system_csparse = system_csparse.found()
+         if system_csparse.found()
+            config_data.set10('HAVE_SUITESPARSE_CS_H', true)
+            break
+         endif
+         system_csparse = cc.find_library(csparse_name, required: false, has_headers: ['cs.h'])
+         use_system_csparse = system_csparse.found()
+         if system_csparse.found()
+            break
+         endif
+      endforeach
+   endif
+   naev_deps += use_system_csparse ? system_csparse : subproject('SuiteSparse').get_variable('CSparse_dep')
 
    ### Soft deps (required: false)
 
@@ -267,7 +273,7 @@ if buildExec.disabled() == false
    install_subdir(
       'artwork',
       install_dir: ndata_path / 'dat',
-      exclude_files: '.git',  # That's a marker used by "git submodule".
+      exclude_directories: '.git',  # That's a marker used by "git submodule".
       strip_directory: true,
    )
 

@@ -35,6 +35,7 @@
 #include "nlua_camera.h"
 #include "nlua_cli.h"
 #include "nlua_col.h"
+#include "nlua_linopt.h"
 #include "nlua_music.h"
 #include "nlua_tex.h"
 #include "nlua_tk.h"
@@ -79,9 +80,9 @@ static int cli_firstline   = 1; /**< Is this the first line? */
  * CLI stuff.
  */
 static int cli_script( lua_State *L );
-static int cli_printOnly( lua_State *L );
+//static int cli_printOnly( lua_State *L );
 static const luaL_Reg cli_methods[] = {
-   { "print", cli_printOnly },
+   { "print", cli_print },
    { "script", cli_script },
    { "warn", cli_warn },
    {NULL, NULL}
@@ -208,10 +209,12 @@ int cli_print( lua_State *L )
 /**
  * @brief Replacement for the internal Lua print to print to console instead of terminal.
  */
+#if 0
 static int cli_printOnly( lua_State *L )
 {
    return cli_printCore( L, 1 );
 }
+#endif
 
 
 /**
@@ -271,7 +274,6 @@ void cli_addMessage( const char *msg )
    buf = strdup((msg != NULL) ? msg : "");
    array_grow(&cli_buffer) = buf;
    cli_history = array_size(cli_buffer) - 1;
-   DEBUG("%s",buf);
 }
 
 
@@ -290,7 +292,6 @@ void cli_addMessageMax( const char *msg, const int l )
    buf = strndup((msg != NULL) ? msg : "", l);
    array_grow(&cli_buffer) = buf;
    cli_history = array_size(cli_buffer) - 1;
-   DEBUG("%s",buf);
 }
 
 
@@ -483,6 +484,7 @@ static int cli_initLua (void)
    nlua_loadMusic( cli_env );
    nlua_loadAudio( cli_env );
    nlua_loadTk( cli_env );
+   nlua_loadLinOpt( cli_env );
 
    /* Mark as console. */
    lua_pushboolean( naevL, 1 );
