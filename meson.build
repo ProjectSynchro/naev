@@ -72,7 +72,7 @@ if buildExec.disabled() == false
    sdl = dependency('sdl2', required: true)
    
    if get_option('steamruntime')
-      sdl_image = subproject('sdl2_image', static: true)
+      sdl_image = subproject('sdl2_image').get_variable('sdl2_image_dep')
       libwebp = dependency('libwebp', required: true, static: true)  # FIXME: required at runtime, but unavailable in the naev-steamruntime build image.
    else
       sdl_image = dependency('SDL2_image', required: true)
