@@ -117,7 +117,7 @@ reward_text2 = _("You recieve a %s and a %s as a reward.")
 reward_text3 = _("You recieve three Shredders as a reward.")
 
 warn_title = _("Major Tam warns you, and gives you a new task.")
-warn_text1 = _([[After the results have been announced, Major Tam gets close to you. He seems to have something important to say: "It was your first ballet, right? You performed very well out there, citizen. 
+warn_text1 = _([[After the results have been announced, Major Tam gets close to you. He seems to have something important to say: "It was your first ballet, right? You performed very well out there, citizen.
    "Anyway, there is a matter I need to discuss with you: one of my informants told me that the ex-colonel Hamelsen has put a price on your head. Yes. This kind of thing just happens, you know. It looks scary, doesn't it? Actually, many people here already have a price on their head, including me, General Klank and Captain Leblanc. And one can live very well with it. The only thing is to be a bit more careful than usual.
    "As Hamelsen has gotten so many mercenaries killed under her command, it is in fact rather unlikely that unrelated pilots jump in and try to kill you. I am pretty sure that the ones that will attack you are motivated by more than money. And I want to know what makes them continue to attack us after having recieved so many losses. So your mission will be the following: if some bounty hunter tries to kill you, catch them alive and bring them to me."]])
 
@@ -224,7 +224,7 @@ function enter()
    if system.cur() == destsys then
       hook.rm(enterhook)
       for i = 1, 100 do -- Flowers
-         local pos = destpla:pos() + vec2.newP( rnd.rnd(0,1000), rnd.rnd(0,360) ) 
+         local pos = destpla:pos() + vec2.newP( rnd.rnd(0,1000), rnd.rnd(0,360) )
          local vel = vec2.newP( rnd.rnd(0,10), rnd.rnd(0,360) )
          system.addGatherable( "Flowers", 1, pos, vel, 3600 )
       end
@@ -287,7 +287,7 @@ function spawnNpcs()
          populate_bar()
 
          if stage == 1 or stage == 3 or stage == 5 then
-            tam = misn.npcAdd("tamCommon", tam_name, portrait_tam, tam_desc)               
+            tam = misn.npcAdd("tamCommon", tam_name, portrait_tam, tam_desc)
          elseif stage == 7 then
             tk.msg( totalTitle, totalString ) -- Ex-aequo always profit the player.
             tk.msg("",reward_text0:format(competitors_names[10]))
@@ -307,9 +307,9 @@ function spawnNpcs()
                player.addOutfit("Tricon Zephyr II Engine")
                player.addOutfit("Emergency Shield Booster")
             elseif playerRank == 7 then
-               tk.msg("",reward_text2:format(_("Milspec Orion 3701 Core System"),_("Shield Capacitor")))
+               tk.msg("",reward_text2:format(_("Milspec Orion 3701 Core System"),_("Shield Capacitor I")))
                player.addOutfit("Milspec Orion 3701 Core System")
-               player.addOutfit("Shield Capacitor")
+               player.addOutfit("Shield Capacitor I")
             elseif playerRank == 6 then
                tk.msg("",reward_text1:format(_("S&K Light Combat Plating")))
                player.addOutfit("S&K Light Combat Plating")
@@ -326,16 +326,16 @@ function spawnNpcs()
                tk.msg("",reward_text1:format(_("Small Shield Booster")))
                player.addOutfit("Small Shield Booster")
             else
-               tk.msg("",reward_text1:format(_("Shield Capacitor")))
-               player.addOutfit("Shield Capacitor")
+               tk.msg("",reward_text1:format(_("Shield Capacitor I")))
+               player.addOutfit("Shield Capacitor I")
             end
             tk.msg(warn_title,warn_text1)
             tk.msg(end_title,end_text1)
             tk.msg(end_title,end_text2)
             tk.msg(end_title,end_text3)
 
-            shiplog.createLog( "frontier_war", _("Frontier War"), _("Dvaered") )
-            shiplog.appendLog( "frontier_war", log_text )
+            shiplog.create( "frontier_war", _("Frontier War"), _("Dvaered") )
+            shiplog.append( "frontier_war", log_text )
             misn.finish(true)
          end
       end
@@ -637,8 +637,8 @@ function startPankration()
       competitors[i+5]:attack(competitors[i])
       compHitHook[i]   = hook.pilot( competitors[i], "attacked", "compHit" )
       compHitHook[i+5] = hook.pilot( competitors[i+5], "attacked", "compHit" )
-      competitors[i]:memory().atk = atk_generic 
-      competitors[i+5]:memory().atk = atk_generic 
+      competitors[i]:memory().atk = atk_generic
+      competitors[i+5]:memory().atk = atk_generic
    end
    misn.osdActive(2)
 end
@@ -660,7 +660,7 @@ end
 
 -- Hack for the ships not to be hostile anymore once shot (Mace Throw)
 function dehostilify()
-   mypilots = pilot.get( { faction.get("Civilian") } )
+   mypilots = pilot.get( { faction.get("Independent") } )
    for i, p in ipairs(mypilots) do
       p:setHostile(false)
    end
@@ -693,7 +693,7 @@ function targetHit( victim, attacker )
    victim:setInvincible()
    victim:taskClear()
    victim:land(destpla)
-   victim:setFaction( "Civilian" )
+   victim:setFaction( "Independent" )
    victim:setHostile( false )
 
    if attacker == player.pilot() then

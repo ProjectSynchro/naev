@@ -278,7 +278,7 @@ static void bar_open( unsigned int wid )
 
    /* Get dimensions. */
    bar_getDim( wid, &w, &h, &iw, &ih, &bw, &bh );
-   dh = gl_printHeightRaw( &gl_smallFont, w - iw - 60, _(land_planet->bar_description) );
+   dh = gl_printHeightRaw( &gl_defFont, w - iw - 60, _(land_planet->bar_description) );
 
    /* Approach when pressing enter */
    window_setAccept( wid, bar_approach );
@@ -294,7 +294,7 @@ static void bar_open( unsigned int wid )
    /* Bar description. */
    window_addText( wid, iw + 40, -40,
          w - iw - 60, dh, 0,
-         "txtDescription", &gl_smallFont, NULL,
+         "txtDescription", &gl_defFont, NULL,
          _(land_planet->bar_description) );
 
    /* Add portrait text. */
@@ -307,7 +307,7 @@ static void bar_open( unsigned int wid )
    th -= 20 + PORTRAIT_HEIGHT + 20 + 20;
    window_addText( wid, iw + 60, th,
          w - iw - 100, h + th - (2*bh+60), 0,
-         "txtMission", &gl_smallFont, NULL, NULL );
+         "txtMission", &gl_defFont, NULL, NULL );
 
    /* Generate the mission list. */
    bar_genList( wid );
@@ -377,7 +377,7 @@ static int bar_genList( unsigned int wid )
          else
             p->image = gl_dupTexture( npc_getTexture(i) );
          if (npc_isImportant(i))
-            p->layers = gl_addTexArray( p->layers, &p->nlayers, gl_newImage( OVERLAY_GFX_PATH"portrait_exclamation.png", 0 ) );
+            p->layers = gl_addTexArray( p->layers, &p->nlayers, gl_newImage( OVERLAY_GFX_PATH"portrait_exclamation.webp", 0 ) );
       }
    }
    window_addImageArray( wid, 20, -40,
@@ -420,7 +420,7 @@ static void bar_update( unsigned int wid, char* str )
 
    /* Get dimensions. */
    bar_getDim( wid, &w, &h, &iw, &ih, &bw, &bh );
-   dh = gl_printHeightRaw( &gl_smallFont, w - iw - 60, _(land_planet->bar_description) );
+   dh = gl_printHeightRaw( &gl_defFont, w - iw - 60, _(land_planet->bar_description) );
 
    /* Get array. */
    pos = toolkit_getImageArrayPos( wid, "iarMissions" );
@@ -586,11 +586,11 @@ static void misn_open( unsigned int wid )
    y -= 2 * gl_defFont.h + 50;
    window_addText( wid, w/2 + 10, y,
          w/2 - 30, 20, 0,
-         "txtReward", &gl_smallFont, NULL, _("#nReward:#0 None") );
+         "txtReward", &gl_defFont, NULL, _("#nReward:#0 None") );
    y -= 20;
    window_addText( wid, w/2 + 10, y,
          w/2 - 30, y - 40 + h - 2*LAND_BUTTON_HEIGHT, 0,
-         "txtDesc", &gl_smallFont, NULL, NULL );
+         "txtDesc", &gl_defFont, NULL, NULL );
 
    /* map */
    map_show( wid, 20, 20,
@@ -816,18 +816,8 @@ static void spaceport_buyMap( unsigned int wid, char *str )
  */
 void land_updateMainTab (void)
 {
-   char buf[STRMAX], cred[ECON_CRED_STRLEN], tons[STRMAX_SHORT], pop[STRMAX_SHORT];
+   char buf[STRMAX], cred[ECON_CRED_STRLEN], tons[STRMAX_SHORT];
    Outfit *o;
-   double p = (double)land_planet->population;
-
-   if (p > 10e9)
-      snprintf( pop, sizeof(pop), _("%.0f billion"), p / 1e9 );
-   else if (p > 10e6)
-      snprintf( pop, sizeof(pop), _("%.0f million"), p / 1e6 );
-   else if (p > 10e3)
-      snprintf( pop, sizeof(pop), _("%.0f thousand"), p / 1e3 );
-   else
-      snprintf( pop, sizeof(pop), "%.0f", p );
 
    /* Update credits. */
    tonnes2str( tons, player.p->cargo_free );
@@ -842,7 +832,9 @@ void land_updateMainTab (void)
          "%s"),
          _(land_planet->name), _(cur_system->name),
          planet_getClassName(land_planet->class), _(land_planet->class),
-         _(faction_name(land_planet->faction)), pop, tons, cred );
+         _(faction_name(land_planet->faction)),
+         space_populationStr( land_planet->population ),
+         tons, cred );
    window_modifyText( land_windows[0], "txtDInfo", buf );
 
    /* Maps are only offered if the planet provides fuel. */
@@ -1105,6 +1097,9 @@ void land_genWindows( int load, int changetab )
 
    /* Finished loading. */
    land_loaded = 1;
+
+   /* Necessary if player.land() was run in an abort() function. */
+   window_lower( land_wid );
 }
 
 
@@ -1182,7 +1177,7 @@ static void land_createMainTab( unsigned int wid )
 {
    glTexture *logo;
    int offset;
-   int w, h, th;
+   int w, h, logow, logoh, th;
    const char *bufSInfo;
 
    /* Get window dimensions. */
@@ -1193,11 +1188,13 @@ static void land_createMainTab( unsigned int wid )
     */
    offset = 20;
    if (land_planet->faction != -1) {
-      logo = faction_logoSmall(land_planet->faction);
+      logo = faction_logo(land_planet->faction);
       if (logo != NULL) {
-         window_addImage( wid, 440 + (w-460-logo->w)/2, -20,
-               0, 0, "imgFaction", logo, 0 );
-         offset = 84;
+         logow = logo->w * (double)FACTION_LOGO_SM / MAX( logo->w, logo->h );
+         logoh = logo->h * (double)FACTION_LOGO_SM / MAX( logo->w, logo->h );
+         window_addImage( wid, 440 + (w-460-logow)/2, -20,
+               logow, logoh, "imgFaction", logo, 0 );
+         offset += FACTION_LOGO_SM;
       }
    }
 
@@ -1207,7 +1204,7 @@ static void land_createMainTab( unsigned int wid )
    window_addImage( wid, 20, -40, 400, 400, "imgPlanet", gfx_exterior, 1 );
    window_addText( wid, 440, -20-offset,
          w-460, h-20-offset-60-LAND_BUTTON_HEIGHT*2, 0,
-         "txtPlanetDesc", &gl_smallFont, NULL, _(land_planet->description) );
+         "txtPlanetDesc", &gl_defFont, NULL, _(land_planet->description) );
 
    /* Player stats. */
    bufSInfo = _(

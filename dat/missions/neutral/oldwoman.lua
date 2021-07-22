@@ -112,7 +112,7 @@ end
 
 -- Date hook.
 function date()
-    local dist_now = cargo_calculateDistance(system.cur(), player.pos(), destsys, destplanet) 
+    local dist_now = cargo_calculateDistance(system.cur(), player.pos(), destsys, destplanet)
     local complaint_now = math.floor(((dist_total - dist_now) / dist_total) * #complaints + 0.5)
     if complaint_now > complaint then
         complaint = complaint_now
@@ -125,7 +125,7 @@ end
 function land()
     if planet.cur() == destplanet then
         tk.msg(title2, text3)
-        player.pay(500000) -- 500K
+        player.pay(500e3)
         addMiscLog( log_text )
         misn.finish(true)
     end

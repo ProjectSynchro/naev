@@ -65,6 +65,7 @@ enum {
 #define PLANET_KNOWN       (1<<0) /**< Planet is known. */
 #define PLANET_BLACKMARKET (1<<1) /**< Planet is a black market. */
 #define PLANET_NOMISNSPAWN (1<<2) /**< No missions spawn nor trigger on this asset. */
+#define PLANET_UNINHABITED (1<<3) /**< Force planet to be uninhabited. */
 #define planet_isFlag(p,f)    ((p)->flags & (f)) /**< Checks planet flag. */
 #define planet_setFlag(p,f)   ((p)->flags |= (f)) /**< Sets a planet flag. */
 #define planet_rmFlag(p,f)    ((p)->flags &= ~(f)) /**< Removes a planet flag. */
@@ -291,7 +292,7 @@ struct StarSystem_ {
    double interference; /**< in % @todo implement interference. */
    double nebu_hue; /**< Hue of the nebula (0. - 1.) */
    double nebu_density; /**< Nebula density (0. - 1000.) */
-   double nebu_volatility; /**< Nebula volatility (0. - 1000.) */
+   double nebu_volatility; /**< Damage per second. */
    double radius; /**< Default system radius for standard jump points. */
    char *background; /**< Background script. */
    char *features; /**< Extra text on the map indicating special features of the system. */
@@ -366,9 +367,9 @@ void planet_averageSeenPricesAtTime( const Planet *p, const ntime_t tupdate );
 /* Misc modification. */
 int planet_setFaction( Planet *p, int faction );
 /* Land related stuff. */
-char planet_getColourChar( Planet *p );
-const char *planet_getSymbol( Planet *p );
-const glColour* planet_getColour( Planet *p );
+char planet_getColourChar( const Planet *p );
+const char *planet_getSymbol( const Planet *p );
+const glColour* planet_getColour( const Planet *p );
 void planet_updateLand( Planet *p );
 
 
@@ -376,8 +377,8 @@ void planet_updateLand( Planet *p );
  * jump stuff
  */
 JumpPoint* jump_get( const char* jumpname, const StarSystem* sys );
-JumpPoint* jump_getTarget( StarSystem* target, const StarSystem* sys );
-const char *jump_getSymbol( JumpPoint *jp );
+JumpPoint* jump_getTarget( const StarSystem* target, const StarSystem* sys );
+const char *jump_getSymbol( const JumpPoint *jp );
 
 /*
  * system adding/removing stuff.
@@ -404,7 +405,7 @@ void planets_render (void);
  */
 void system_presenceCleanupAll( void );
 void system_addPresence( StarSystem *sys, int faction, double amount, int range );
-double system_getPresence( StarSystem *sys, int faction );
+double system_getPresence( const StarSystem *sys, int faction );
 void system_addAllPlanetsPresence( StarSystem *sys );
 void space_reconstructPresences( void );
 void system_rmCurrentPresence( StarSystem *sys, int faction, double amount );
@@ -463,7 +464,7 @@ int space_calcJumpInPos( const StarSystem *in, const StarSystem *out, Vector2d *
  * Asteroids
  */
 void asteroid_hit( Asteroid *a, const Damage *dmg );
-int space_isInField ( Vector2d *p );
+int space_isInField ( const Vector2d *p );
 AsteroidType *space_getType ( int ID );
 
 
@@ -474,6 +475,7 @@ void system_setFaction( StarSystem *sys );
 void space_checkLand (void);
 void space_factionChange (void);
 void space_queueLand( Planet *pnt );
+const char *space_populationStr( uint64_t population );
 
 
 #endif /* SPACE_H */

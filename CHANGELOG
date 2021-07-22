@@ -4,9 +4,12 @@
       * Pilots can now go into stealth mode
       * Electronic warfare parameters are simplified and visible
       * Overhaul and rebalance of most outfits
+      * Wanted pirates no longer aggro defense forces (pirate bounties)
+      * Bribed pilots don't become hostile again unless attacked
       * Added new utility outfits with complex effects
       * Added escorts for hire
       * Added discovery messages as you explore the universe
+      * Added automatic landing as an overlay double-click action (and on repeat of the "Land" key).
       * New fancy system rendering effects
       * Ships and rockets now have engine trails
       * Beam visuals have been made more flexible and pretty
@@ -14,6 +17,8 @@
       * Redid the shake visuals and added a small damage visual
       * Most special effects implemented as shaders
       * Game now tracks meta-data like ships destroyed and time played
+      * Stress now discreases based on ship mass
+      * Merged the Independent and Civilian factions
       * Added gambling resort "Minerva Station"
       * Added mysterious new system "Taiomi"
       * New missions

@@ -131,8 +131,8 @@ function land ()
          -- Rewards
          player.pay(reward)
          emp_modReputation( 5 ) -- Bump cap a bit
-         faction.modPlayerSingle("Empire",5);
-         faction.modPlayerSingle("Dvaered",5);
+         faction.modPlayerSingle("Empire",5)
+         faction.modPlayerSingle("Dvaered",5)
          diff.apply("heavy_combat_vessel_license")
 
          -- Flavour text
@@ -157,7 +157,7 @@ function enter ()
       enter_vect = jump.pos(sys, prevsys)
       m,a = enter_vect:polar()
       enter_vect:setP( m-3000, a )
-      v = pilot.add( "Gawain", "Trader", enter_vect, _("Trader Gawain"), "dummy" )
+      v = pilot.add( "Gawain", "Trader", enter_vect, _("Trader Gawain"), {ai="dummy"} )
 
       v:setPos( enter_vect )
       v:setVel( vec2.new( 0, 0 ) ) -- Clear velocity
@@ -183,7 +183,7 @@ function enter ()
          p:control()
          p:attack( pp )
       end
-      
+
       -- Now Dvaered
       -- They will jump together with you in the system at the jump point. (A.)
       p = pilot.addFleet( "Dvaered Med Force", prevsys )

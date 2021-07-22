@@ -8,7 +8,7 @@
    <priority>4</priority>
    <cond>faction.playerStanding("Empire") &gt;= 0 and var.peek("es_cargo") == true and var.peek("es_misn") ~= nil and var.peek("es_misn") &gt;= 2</cond>
    <chance>30</chance>
-   <done>Empire Recruitment</done>   
+   <done>Empire Recruitment</done>
    <location>Bar</location>
    <faction>Empire</faction>
   </avail>
@@ -46,7 +46,7 @@ log_text = _([[You delivered a shipping bureaucrat to Soromid Customs Central fo
 
 function create ()
  -- Note: this mission does not make any system claims.
- 
+
       -- Get the planet and system at which we currently are.
    startworld, startworld_sys = planet.cur()
 
@@ -69,9 +69,9 @@ function accept ()
    tk.msg( title[2], text[2] )
    ---Accept the mission
    misn.accept()
-  
+
    -- Description is visible in OSD and the onboard computer, it shouldn't be too long either.
-   reward = 500000 -- 500K
+   reward = 500e3
    misn.setTitle(misn_title)
    misn.setReward(creditstring(reward))
    misn.setDesc( string.format( misn_desc, targetworld:name(), targetworld_sys:name() ) )

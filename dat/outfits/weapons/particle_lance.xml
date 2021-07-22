@@ -16,11 +16,11 @@
   <range>350</range>
   <energy>5</energy>
   <heatup>40</heatup>
+  <swivel>22</swivel>
   <damage>
    <type>normal</type>
    <penetrate>0</penetrate>
    <physical>84</physical>
-   <disable>4</disable>
   </damage>
   <spfx_shield>ShiS</spfx_shield>
   <spfx_armour>ExpS</spfx_armour>

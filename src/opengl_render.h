@@ -67,6 +67,10 @@ void gl_blitScaleSprite( const glTexture* sprite,
 void gl_blitScale( const glTexture* texture,
       const double bx, const double by,
       const double bw, const double bh, const glColour* c );
+/* blits a texture scaled to a rectangle, but conserve aspect ratio, absolute pos */
+void gl_blitScaleAspect( const glTexture* texture,
+      const double bx, const double by,
+      const double bw, const double bh, const glColour* c );
 /* blits the entire image, absolute pos */
 void gl_blitStatic( const glTexture* texture,
       const double bx, const double by, const glColour *c );
@@ -96,6 +100,9 @@ void gl_drawLine( const double x1, const double y1,
 void gl_renderRect( double x, double y, double w, double h, const glColour *c );
 void gl_renderRectEmpty( double x, double y, double w, double h, const glColour *c );
 void gl_renderRectH( const gl_Matrix4 *H, const glColour *c, int filled );
+
+/* OK / Not OK status (green circle or slashed red circle). */
+void gl_renderStatus( double x, double y, double w, double h, int ok );
 
 /* Cross. */
 void gl_renderCross( double x, double y, double r, const glColour *c );

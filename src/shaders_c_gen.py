@@ -84,7 +84,7 @@ SHADERS = [
       vs_path = "nebula.vert",
       fs_path = "nebula_overlay.frag",
       attributes = ["vertex"],
-      uniforms = ["projection", "hue", "horizon", "eddy_scale", "time"],
+      uniforms = ["projection", "hue", "brightness", "horizon", "eddy_scale", "time"],
       subroutines = {},
    ),
    Shader(
@@ -92,7 +92,7 @@ SHADERS = [
       vs_path = "nebula.vert",
       fs_path = "nebula_background.frag",
       attributes = ["vertex"],
-      uniforms = ["projection", "hue", "eddy_scale", "time"],
+      uniforms = ["projection", "hue", "brightness", "eddy_scale", "time"],
       subroutines = {},
    ),
    Shader(
@@ -117,6 +117,15 @@ SHADERS = [
       fs_path = "font.frag",
       attributes = ["vertex", "tex_coord"],
       uniforms = ["projection", "color", "outline_color"],
+      subroutines = {},
+   ),
+   Shader(
+      name = "safelanes",
+      vs_path = "project_pos.vert",
+      fs_path = "safelanes.frag",
+      attributes = ["vertex"],
+      #uniforms = ["projection", "color", "dt", "r", "dimensions" ],
+      uniforms = ["projection", "color", "dimensions" ],
       subroutines = {},
    ),
    Shader(
@@ -193,6 +202,14 @@ SHADERS = [
       uniforms = ["ClipSpaceFromLocal", "MainTex", "gamma"],
       subroutines = {},
    ),
+   Shader(
+      name = "status",
+      vs_path = "project_pos.vert",
+      fs_path = "status.frag",
+      attributes = ["vertex"],
+      uniforms = ["projection", "ok"],
+      subroutines = {},
+   ),
 ]
 
 def write_header(f):
@@ -257,7 +274,7 @@ def generate_c_file(f):
                     attribute,
                     shader.name,
                     attribute))
-       
+
         for uniform in shader.uniforms:
             f.write("   shaders.{}.{} = glGetUniformLocation(shaders.{}.program, \"{}\");\n".format(
                     shader.name,

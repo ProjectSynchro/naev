@@ -5,9 +5,9 @@
  <rarity>2</rarity>
  <GUI>brushed</GUI>
  <sound>engine</sound>
- <class>Destroyer</class>
+ <class display="Bio-Destroyer">Destroyer</class>
  <price>1000000</price>
- <time_mod>1.5</time_mod>
+ <time_mod>1.25</time_mod>
  <trail_generator x="-25" y="8" h="0">soromid</trail_generator>
  <trail_generator x="-25" y="-8" h="0">soromid</trail_generator>
  <fabricator>Soromid</fabricator>

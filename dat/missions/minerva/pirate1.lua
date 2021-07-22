@@ -64,14 +64,14 @@ function accept ()
    vn.music( minerva.loops.pirate )
    vn.transition()
    vn.label( "leave" )
-   vn.na(_("You approach the sketch individual who seems to be calling your attention."))
+   vn.na(_("You approach the sketchy individual who seems to be calling your attention."))
    pir(_([["What do you think about them Za'leks and Dvaereds? Quite a work, eh? Always getting into fights with each other and creating trouble for those who just want to enjoy life. Such a bother."]]))
    pir(_([["Say what, I know you're a pretty decent pilot. Would you be interested in a somewhat non-standard job? Nothing very out of the ordinary, just want to ruff up some feathers."]]))
    vn.menu( {
       {_("Accept the job"), "accept"},
       {_("Kindly decline"), "decline"},
    } )
-   
+
    vn.label("decline")
    vn.na(_("You decline their offer and take your leave."))
    vn.done()
@@ -189,10 +189,10 @@ end
 
 function heartbeat ()
    local pp = player.pilot()
-   local dist =  pp:pos():dist( drone:pos() ) 
+   local dist =  pp:pos():dist( drone:pos() )
    if dist < 1000 then
       player.msg(_("#gThe drone begins to follow you."))
-      misn_state=1 
+      misn_state=1
       misn.osdActive(2)
       drone:taskClear()
       drone:follow(pp)

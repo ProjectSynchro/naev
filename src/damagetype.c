@@ -239,6 +239,26 @@ void dtype_free (void)
 
 
 /**
+ * @brief Gets the raw modulation stats of a damage type.
+ *
+ *    @param type Type to get stats of.
+ *    @param[out] shield Shield damage modulator.
+ *    @param[out] armour Armour damage modulator.
+ *    @param[out] knockback Knockback modulator.
+ */
+void dtype_raw( int type, double *shield, double *armour, double *knockback )
+{
+   DTYPE *dtype = dtype_validType( type );
+   if (shield != NULL)
+      *shield = dtype->sdam;
+   if (armour != NULL)
+      *armour = dtype->adam;
+   if (knockback != NULL)
+      *knockback = dtype->knock;
+}
+
+
+/**
  * @brief Gives the real shield damage, armour damage and knockback modifier.
  *
  *    @param[out] dshield Real shield damage.
@@ -248,7 +268,7 @@ void dtype_free (void)
  *    @param[in] dmg Damage information.
  *    @param[in] s Ship stats to use.
  */
-void dtype_calcDamage( double *dshield, double *darmour, double absorb, double *knockback, const Damage *dmg, ShipStats *s )
+void dtype_calcDamage( double *dshield, double *darmour, double absorb, double *knockback, const Damage *dmg, const ShipStats *s )
 {
    DTYPE *dtype;
    char *ptr;
@@ -268,12 +288,12 @@ void dtype_calcDamage( double *dshield, double *darmour, double absorb, double *
           * If an offset has been specified, look for a double at that offset
           * in the ShipStats struct, and used it as a multiplier.
           *
-          * The 2. - n logic serves to undo the initialization done by
-          * ss_statsInit and turn the value into a multiplier.
+          * The 1. - n logic serves to convert the value from absorption to
+          * damage multiplier.
           */
          ptr = (char*) s;
          memcpy(&multiplier, &ptr[ dtype->soffset ], sizeof(double));
-         multiplier = MAX( 0., 2. - multiplier );
+         multiplier = MAX( 0., 1. - multiplier );
          *dshield = dtype->sdam * dmg->damage * absorb * multiplier;
       }
    }
@@ -283,7 +303,7 @@ void dtype_calcDamage( double *dshield, double *darmour, double absorb, double *
       else {
          ptr = (char*) s;
          memcpy(&multiplier, &ptr[ dtype->aoffset ], sizeof(double));
-         multiplier = MAX( 0., 2. - multiplier );
+         multiplier = MAX( 0., 1. - multiplier );
          *darmour = dtype->adam * dmg->damage * absorb * multiplier;
       }
    }

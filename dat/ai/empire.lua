@@ -1,6 +1,5 @@
-require("ai/tpl/generic")
-require("ai/personality/patrol")
-require "numstring"
+require 'ai.core.core'
+require 'numstring'
 
 -- Settings
 mem.armour_run = 40
@@ -14,7 +13,7 @@ function create ()
    ai.setcredits( rnd.rnd(ai.pilot():ship():price()/300, ai.pilot():ship():price()/70) )
 
    -- Lines to annoy the player. Shouldn't be too common or Gamma Polaris and such get inundated.
-   r = rnd.rnd(0,20)
+   local r = rnd.rnd(0,20)
    if r == 0 then
       ai.pilot():broadcast(_("The Empire is watching you."))
    elseif r == 1 then
@@ -22,21 +21,21 @@ function create ()
    end
 
    -- Get refuel chance
-   p = player.pilot()
+   local p = player.pilot()
    if p:exists() then
-      standing = ai.getstanding( p ) or -1
+      local standing = ai.getstanding( p ) or -1
       mem.refuel = rnd.rnd( 2000, 4000 )
-      if standing < 20 then
+      if standing < 0 then
          mem.refuel_no = _("\"My fuel is property of the Empire.\"")
-      elseif standing < 70 then
-         if rnd.rnd() > 0.2 then
+      elseif standing < 40 then
+         if rnd.rnd() > 0.8 then
             mem.refuel_no = _("\"My fuel is property of the Empire.\"")
          end
       else
          mem.refuel = mem.refuel * 0.6
       end
       -- Most likely no chance to refuel
-      mem.refuel_msg = string.format( _("\"I suppose I could spare some fuel for %s.\""), creditstring(mem.refuel) )
+      mem.refuel_msg = string.format( _("\"I suppose I could spare some fuel for %s, but you'll have to do the paperwork.\""), creditstring(mem.refuel) )
    end
 
    -- See if can be bribed
@@ -45,7 +44,7 @@ function create ()
       mem.bribe_prompt = string.format(_("\"For some %s I could forget about seeing you.\""), creditstring(mem.bribe) )
       mem.bribe_paid = _("\"Now scram before I change my mind.\"")
    else
-     bribe_no = {
+     local bribe_no = {
             _("\"You won't buy your way out of this one.\""),
             _("\"The Empire likes to make examples out of scum like you.\""),
             _("\"You've made a huge mistake.\""),
@@ -54,7 +53,7 @@ function create ()
             _("\"All the money in the world won't save you now!\"")
      }
      mem.bribe_no = bribe_no[ rnd.rnd(1,#bribe_no) ]
-     
+
    end
 
    mem.loiter = 3 -- This is the amount of waypoints the pilot will pass through before leaving the system
@@ -65,7 +64,6 @@ end
 
 -- taunts
 function taunt ( target, offense )
-
    -- Only 50% of actually taunting.
    if rnd.rnd(0,1) == 0 then
       return

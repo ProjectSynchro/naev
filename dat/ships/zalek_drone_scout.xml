@@ -6,9 +6,9 @@
  <sound>engine</sound>
  <class>Scout</class>
  <price>180000</price>
- <time_mod>1</time_mod>
- <trail_generator x="-15" y="0" h="0">nebula</trail_generator>
- <trail_generator x="-15" y="0" h="0">zalekXS</trail_generator>
+ <time_mod>0.75</time_mod>
+ <trail_generator x="-11" y="0" h="0">nebula</trail_generator>
+ <trail_generator x="-11" y="0" h="0">zalekXS</trail_generator>
  <fabricator>Za'lek Robotics</fabricator>
  <description>This is the Za'lek Scout Drone. Built for scouting, not for battle. Not to be flown by the player.</description>
  <movement>
@@ -33,7 +33,7 @@
   <cpu>10</cpu>
  </characteristics>
  <slots>
-  <weapon size="small" x="0" y="0" h="-2" />
+  <weapon size="small" x="0" y="0" h="-2">Particle Lance</weapon>
   <utility size="small" />
   <structure size="small" />
  </slots>

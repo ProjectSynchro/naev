@@ -88,7 +88,7 @@ function enter()
         dist = rnd.rnd() * system.cur():radius()
         angle = rnd.rnd() * 2 * math.pi
         location = vec2.new(dist * math.cos(angle), dist * math.sin(angle)) -- Randomly spawn the Gawain in the system
-        target = pilot.add( "Gawain", "Civilian", location, _("Civilian Gawain") )
+        target = pilot.add( "Gawain", "Independent", location )
         target:control()
         target:rename(_("Credence"))
         target:setFaction("Dummy")
@@ -141,7 +141,7 @@ end
 function land()
     if planet.cur() == curplanet then
         tk.msg(title[5], text[5])
-        player.pay(300000) -- 300K
+        player.pay(300e3)
         misn.finish(true)
     end
 end

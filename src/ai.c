@@ -135,7 +135,6 @@ static void ai_create( Pilot* pilot );
 static int ai_loadEquip (void);
 /* Task management. */
 static void ai_taskGC( Pilot* pilot );
-static Task* ai_curTask( Pilot* pilot );
 static Task* ai_createTask( lua_State *L, int subtask );
 static int ai_tasktarget( lua_State *L, Task *t );
 
@@ -350,7 +349,7 @@ Pilot *cur_pilot           = NULL; /**< Current pilot.  All functions use this. 
 static double pilot_acc    = 0.; /**< Current pilot's acceleration. */
 static double pilot_turn   = 0.; /**< Current pilot's turning. */
 static int pilot_flags     = 0; /**< Handle stuff like weapon firing. */
-static char aiL_distressmsg[PATH_MAX]; /**< Buffer to store distress message. */
+static char aiL_distressmsg[STRMAX_SHORT]; /**< Buffer to store distress message. */
 
 /*
  * ai status, used so that create functions can't be used elsewhere
@@ -395,7 +394,7 @@ static void ai_taskGC( Pilot* pilot )
 /**
  * @brief Gets the current running task.
  */
-static Task* ai_curTask( Pilot* pilot )
+Task* ai_curTask( Pilot* pilot )
 {
    Task *t;
    /* Get last task. */
@@ -977,7 +976,7 @@ static void ai_create( Pilot* pilot )
       aiL_status = AI_STATUS_CREATE;
 
    /* Create equipment first - only if creating for the first time. */
-   if (!pilot_isFlag(pilot,PILOT_PLAYER) && (aiL_status==AI_STATUS_CREATE) &&
+   if (!pilot_isFlag(pilot,PILOT_NO_OUTFITS) && (aiL_status==AI_STATUS_CREATE) &&
             !pilot_isFlag(pilot, PILOT_EMPTY)) {
       if  (faction_getEquipper( pilot->faction ) != LUA_NOREF) {
          env = faction_getEquipper( pilot->faction );
@@ -1496,7 +1495,7 @@ static int aiL_isbribed( lua_State *L )
 {
    Pilot *p;
    p = luaL_validpilot(L,1);
-   lua_pushboolean(L, (p->id == PLAYER_ID) && pilot_isFlag(cur_pilot, PILOT_BRIBED));
+   lua_pushboolean(L, pilot_isWithPlayer(p) && pilot_isFlag(cur_pilot, PILOT_BRIBED));
    return 1;
 }
 
@@ -1529,7 +1528,7 @@ static int aiL_getstanding( lua_State *L )
    p = luaL_validpilot(L,1);
 
    /* Get faction standing. */
-   if (p->faction == FACTION_PLAYER)
+   if (pilot_isWithPlayer(p))
       lua_pushnumber(L, faction_getPlayer(cur_pilot->faction));
    else {
       if (areAllies( cur_pilot->faction, p->faction ))
@@ -1587,9 +1586,8 @@ static int aiL_isenemy( lua_State *L )
    p = luaL_validpilot(L,1);
 
    /* Player needs special handling in case of hostility. */
-   if (p->faction == FACTION_PLAYER) {
+   if (pilot_isWithPlayer(p)) {
       lua_pushboolean(L, pilot_isHostile(cur_pilot));
-      lua_pushboolean(L,1);
       return 1;
    }
 
@@ -1613,7 +1611,7 @@ static int aiL_isally( lua_State *L )
    p = luaL_validpilot(L,1);
 
    /* Player needs special handling in case of friendliness. */
-   if (p->faction == FACTION_PLAYER) {
+   if (pilot_isWithPlayer(p)) {
       lua_pushboolean(L, pilot_isFriendly(cur_pilot));
       return 1;
    }
@@ -1711,8 +1709,8 @@ static int aiL_turn( lua_State *L )
  * @usage ai.face( a_pilot, nil, true ) -- Compensate velocity facing a pilot
  *
  *    @luatparam Pilot|Vec2|number target Target to face.
- *    @luatparam boolean invert Invert away from target.
- *    @luatparam boolean compensate Compensate for velocity?
+ *    @luatparam[opt=false] boolean invert Invert away from target.
+ *    @luatparam[opt=false] boolean compensate Compensate for velocity?
  *    @luatreturn number Angle offset in degrees.
  * @luafunc face
  */
@@ -3011,7 +3009,7 @@ static int aiL_hostile( lua_State *L )
 
    p = luaL_validpilot(L,1);
 
-   if (p->faction == FACTION_PLAYER)
+   if (pilot_isWithPlayer(p))
       pilot_setHostile(cur_pilot);
 
    return 0;

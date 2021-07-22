@@ -34,9 +34,6 @@ misn_reward = _("Cold hard credits")
 misn_desc = _("Someone wants you to deal with a Dvaered spy that appears to be located at Minerva Station.")
 reward_amount = 350e3
 
--- Should be the same as the original chuckaluck guy
-mole_image = "minervaceo.png" -- TODO replace
-
 mainsys     = "Fried"
 dvaeredsys  = "Limbo"
 piratesys   = "Effetey"
@@ -100,8 +97,8 @@ function approach_pir ()
 
    if misn_state==nil then
       -- Not accepted
-      vn.na(_("You approach the sketch individual who seems to be somewhat excited."))
-      pir(_([["It seems like we have finally started to get the fruits of our labour. It seems like we have found the mole, and we would like you to help us deal with them. Are you up to the task? Things might get a little… messy though."
+      vn.na(_("You approach the sketchy individual who seems to be somewhat excited."))
+      pir(_([["It seems like we have finally started to get the fruits of our labour. We believe we have found the mole, and would like you to help us deal with them. Are you up to the task? Things might get a little… messy though."
 They beam you a smile.]]))
       vn.menu( {
          {_("Accept the job"), "accept"},
@@ -148,7 +145,7 @@ end
 function found_mole ()
    vn.clear()
    vn.scene()
-   local mole = vn.newCharacter( _("Mole"), {image=mole_image} )
+   local mole = vn.newCharacter( minerva.vn_mole() )
    vn.transition()
    vn.na(_("After the chuck-a-luck dealers shift you follow him to a back alley in the station."))
    mole(_([["I don't recognize you, are you the new messenger? Last guy got sliced up."
@@ -197,7 +194,7 @@ function enter ()
       pilot.toggleSpawn(false)
 
       -- Main ship player has to protect
-      mainship = pilot.add( "Pirate Rhino", "Pirate", shippos, nil, "guard" )
+      mainship = pilot.add( "Pirate Rhino", "Pirate", shippos, nil, {ai="guard"} )
       local mem = mainship:memory()
       mem.aggressive = false -- only fight back
       mem.guardpos = shippos -- Stay around origin
@@ -243,6 +240,7 @@ They beam you a smile.
 "Let us talk about your payment."]]))
    vn.music( "snd/sounds/loops/alarm.ogg" ) -- blaring alarm
    vn.na("Suddenly an alarm starts blaring throughout the ship.")
+   -- Using boars as slang for Dvaered
    maikki(_([[The familiar and angry voice bellows in the distance.
 "Zuri! We've got incoming boars closing in our or position! Take care of it!"]]))
    pir:rename(_("Zuri"))
@@ -306,7 +304,7 @@ function pir_reinforcements ()
    -- Reinforcement spawners
    local jmp = system.get(piratesys)
    local function addpir( shipname, leader )
-      local p = pilot.add( shipname, "Pirate", jmp, nil, "guard" )
+      local p = pilot.add( shipname, "Pirate", jmp, nil, {ai="guard"} )
       p:setFriendly(true)
       p:setLeader(l)
       local mem = p:memory()
@@ -353,7 +351,7 @@ local function spawn_dvaereds( ships )
    for k,v in ipairs(ships) do
       -- We exploit the 'guard' AI to get the Dvaered to go ontop of the
       -- interrogation ship and destroy it
-      local p = pilot.add( v, "Dvaered", jmp, nil, "guard" )
+      local p = pilot.add( v, "Dvaered", jmp, nil, {ai="guard"} )
       p:setVisplayer(true)
       local mem = p:memory()
       mem.guardpos = shippos -- Go to mainship

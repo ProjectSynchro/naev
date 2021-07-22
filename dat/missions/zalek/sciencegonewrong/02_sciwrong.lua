@@ -19,7 +19,7 @@
    How to make this more interesting than just go to a system and shoot down the drone w ion or medusa? The ship has to have enough cargo for the drone to be transported back.
    So the player has to hail the drone bc the scientist wants to patch the software which fails and the drone causes other drones to attack.
    I was thinking of player having to use electronic warfare. But is there a way to check that?
-   Difficulty: relatively easy? 
+   Difficulty: relatively easy?
 
    Author: fart but based on Mission Ideas in wiki: wiki.naev.org/wiki/Mission_Ideas
 --]]
@@ -39,7 +39,7 @@ t_pla = {}
 reward = 2000000
 -- amount of jumps the drone did to escape. Each jump reduces it's speed
 fled = false
-jumps = 0 
+jumps = 0
 t_sys[1] = system.get("Xavier")
 t_pla[1] = t_sys[1]:planets()[1]
 t_sys[2] = system.get("Seiben")
@@ -78,7 +78,7 @@ fail_text = _([["NOOOOOO! What have you done!? My prototype! It's going to take 
 osd_msg[1] = _("Go to the %s system and hail the prototype")
 osd_msg[2] = _("Disable the prototype")
 osd_msg[3] = _("Return the prototype to %s in the %s system")
--- refuestext 
+-- refuestext
 refusetitle = _("No Science Today")
 refusetext = _("Don't you care about science?...")
 
@@ -114,24 +114,23 @@ function sys_enter ()
       --pilot.toggleSpawn(false)
       hook.timer( 2000,"game_of_drones")
    end
-   if jumps ~= 0 then 
+   if jumps ~= 0 then
       if system.cur() == t_sys[3] then
          -- do something else
          hook.timer(2000,"chase_of_drones")
       end
    end
-   
+
 end
 
 function game_of_drones ()
    tk.msg(title[2], text[3]:format(t_pla[1]:name()))
-   -- spawn drones 
+   -- spawn drones
 
-   t_drone = pilot.add( "Za'lek Scout Drone", "Za'lek", t_pla[1], nil, "trader" ) -- prototype is a scout drone
+   t_drone = pilot.add( "Za'lek Scout Drone", "Za'lek", t_pla[1], nil, {ai="trader"} ) -- prototype is a scout drone
    t_drone:addOutfit("Tricon Zephyr II Engine")
    -- add something so it is not insta-disabled with one shot?
-   --t_drone:addOutfit("Tricon Zephyr II Engine")
-   t_drone:setFaction("Civilian")
+   t_drone:setFaction("Independent")
    t_drone:rename(_("Prototype Drone"))
    t_drone:setInvincible(true)
    t_drone:control()
@@ -143,7 +142,7 @@ function game_of_drones ()
    misn.osdActive(2)
    -- wait for the drone to be hailed
    dist = 200
-   sp = t_pla[1] 
+   sp = t_pla[1]
    -- + vec2.new(dist*math.cos(math.pi*2*rnd.rnd()),dist*math.sin(2*math.pi*rnd.rnd()))
    --pilot.toggleSpawn(true)
    hailhook = hook.pilot(t_drone,"hail","got_hailed",t_drone,badguys)
@@ -211,7 +210,7 @@ function targetBoard()
 end
 
 function drone_jumped ()
-   --begin the chase: 
+   --begin the chase:
    tk.msg(title[3], text[9]:format(t_sys[3]:name()))
    misn.markerRm(mmarker)
    if (jumps==0) then
@@ -238,10 +237,10 @@ end
 -- the drone behaves differently depending on through how many systems it has been chased so far
 function chase_of_drones ()
    tk.msg(title[3],text[10])
-   t_drone = pilot.add( "Za'lek Scout Drone", "Za'lek", vec2.newP(rnd.rnd(0,system.cur():radius()/5),rnd.rnd(0,359)), nil, "dummy" ) -- prototype is a scout drone
+   t_drone = pilot.add( "Za'lek Scout Drone", "Za'lek", vec2.newP(rnd.rnd(0,system.cur():radius()/5),rnd.rnd(0,359)), nil, {ai="dummy"} ) -- prototype is a scout drone
    t_drone:addOutfit("Tricon Zephyr II Engine")
    -- add something so it is not insta-disabled with one shot?
-   t_drone:setFaction("Civilian")
+   t_drone:setFaction("Independent")
    t_drone:rename(_("Prototype Drone"))
    t_drone:control()
    t_drone:setHilight(true)
@@ -263,7 +262,7 @@ function chase_of_drones ()
    end
    -- just some moving around, stolen from baron missions ;D
    idlehook = hook.pilot(t_drone, "idle", "targetIdle")
-   
+
 end
 
 function drone_attacked()
@@ -372,7 +371,7 @@ end
 
 function get_nearest_jump(pil)
    jpts = system.cur():jumps()
-   -- basically the distance that the map can have at 
+   -- basically the distance that the map can have at
    dist = 2*system.cur():radius()
    index = 0
    for i,jpt in ipairs(jpts) do

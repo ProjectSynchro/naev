@@ -108,7 +108,7 @@ function create ()
    if not misn.claim(missys) then
       misn.finish(false)
    end
- 
+
    misn.setNPC( _("Dimitri?"), "unknown.webp", bar_desc )
    credits = 2000000
 end
@@ -141,7 +141,7 @@ function accept ()
    osd_msg[1] = osd_msg[1]:format(misn_target_sys:name())
    osd_msg[3] = osd_msg[3]:format(misn_base:name())
    misn.osdCreate(misn_title, osd_msg)
-   
+
    tk.msg( title[2], string.format(text[3], misn_base:name() ) )
    tk.msg( title[3], string.format(text[4], _("Eiroik")))
    emp_addCollectiveLog( log_text_intro )
@@ -195,7 +195,7 @@ function enter ( from_sys )
          misn.osdActive(2)
 
          -- Position trinity on the other side of the player
-         trinity = pilot.add( "Empire Hawking", "Empire", vec2.new(-5000, 1500), _("ESS Trinity"), "noidle" )
+         trinity = pilot.add( "Empire Hawking", "Empire", vec2.new(-5000, 1500), _("ESS Trinity"), {ai="noidle"} )
          trinity:setVisplayer()
          trinity:setHilight(true)
          trinity:setFaction("Empire") -- Starts out non-hostile
@@ -336,9 +336,9 @@ function add_escorts( landed )
    else
       param = last_sys
    end
-   
+
    if escorts == nil then escorts = {} end
-   paci = pilot.add( "Empire Pacifier", "Empire", param, nil, "escort_player" )
+   paci = pilot.add( "Empire Pacifier", "Empire", param, nil, {ai="escort_player"} )
    escorts[#escorts + 1] = paci
    paci:setFriendly()
    if trinity ~= nil then
@@ -346,7 +346,7 @@ function add_escorts( landed )
       paci:moveto( trinity:pos() )
    end
    for i=1, 6 do
-      local lance = pilot.add( "Empire Lancelot", "Empire", param, nil, "escort_player" )
+      local lance = pilot.add( "Empire Lancelot", "Empire", param, nil, {ai="escort_player"} )
       escorts[#escorts + 1] = lance
       lance:setFriendly()
       if trinity ~= nil then

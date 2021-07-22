@@ -116,9 +116,6 @@ function create()
    top_bar_left = tex_open( "topbar_left.png" )
    top_bar_right = tex_open( "topbar_right.png" )
    top_bar_center = tex_open( "topbarCenter.png" )
-   bottom_bar = tex_open( "bottombar.png" )
-   bottom_bar_left = tex_open( "bottombar_left.png" )
-   bottom_bar_right = tex_open( "bottombar_right.png" )
    button_normal = tex_open( "button.png" )
    button_hilighted = tex_open( "buttonHil2.png" )
    button_mouseover = tex_open( "buttonHil.png" )
@@ -194,10 +191,6 @@ function create()
    tbar_y = screen_h - tbar_h - margin
    tbar_left_w, tbar_left_h = top_bar_left:dim()
    tbar_right_w, tbar_right_h = top_bar_right:dim()
-
-   bbar_w, bbar_h = bottom_bar:dim()
-   bbar_left_w, bbar_left_h = bottom_bar_left:dim()
-   bbar_right_w, bbar_right_h = bottom_bar_right:dim()
 
    gui.viewport( 0, 0, screen_w, screen_h )
 
@@ -352,7 +345,7 @@ function update_nav()
 
       ta_pnt_faction_gfx = nil
       if ta_pntfact and ta_pntfact:known() then
-         ta_pnt_faction_gfx = ta_pntfact:logoTiny()
+         ta_pnt_faction_gfx = ta_pntfact:logo()
       end
 
       planet = { -- Table for convenience.
@@ -693,11 +686,6 @@ function render( dt )
    gfx.renderTex( top_bar_left, margin, tbar_y )
    gfx.renderTex( top_bar_right, screen_w - margin - tbar_right_w, tbar_y )
 
-   -- Bottom Bar
-   gfx.renderTexRaw( bottom_bar, margin + bbar_left_w, margin, screen_w - 2*margin - bbar_left_w - bbar_right_w, bbar_h, 1, 1, 0, 0, 1, 1 )
-   gfx.renderTex( bottom_bar_left, margin, margin )
-   gfx.renderTex( bottom_bar_right, screen_w - margin - bbar_right_w, margin )
-
    --Main window right
    if #wset > weapbars then
       wbars_right = weapbars
@@ -709,7 +697,7 @@ function render( dt )
    mod_x = math.max( margin, math.min(
          screen_w - 2*margin - math.max( gui_w, 1024 ),
          math.floor( (screen_w - 2*margin - gui_w)/3 ) ) )
-   mod_y = 46
+   mod_y = margin
    gfx.renderTexRaw( ext_right, left_side_w - 10 + mod_x, mod_y, right_side_w, end_right_h, 1, 1, 0, 0, 1, 1 )
    gfx.renderTex( end_right, right_side_x + right_side_w + mod_x, mod_y )
 
@@ -926,7 +914,7 @@ function render( dt )
          ta_pnt_pane_x + 14, ta_pnt_pane_y - 40, col_text )
 
       if ta_pnt_faction_gfx then
-         gfx.renderTex( ta_pnt_faction_gfx, ta_pnt_fact_x, ta_pnt_fact_y )
+         gfx.renderTexScale( ta_pnt_faction_gfx, ta_pnt_fact_x, ta_pnt_fact_y, 24, 24 )
       end
 
       x1, y1 = vec2.get(planet.pos)

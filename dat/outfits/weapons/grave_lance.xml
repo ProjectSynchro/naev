@@ -17,11 +17,11 @@
   <range>700</range>
   <energy>30</energy>
   <heatup>50</heatup>
+  <swivel>22</swivel>
   <damage>
    <type>normal</type>
    <penetrate>48</penetrate>
    <physical>140</physical>
-   <disable>4</disable>
   </damage>
   <spfx_shield>ShiS</spfx_shield>
   <spfx_armour>ExpS</spfx_armour>

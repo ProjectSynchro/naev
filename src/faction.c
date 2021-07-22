@@ -59,8 +59,7 @@ typedef struct Faction_ {
    char *ai; /**< Name of the faction's default pilot AI. */
 
    /* Graphics. */
-   glTexture *logo_small; /**< Small logo. */
-   glTexture *logo_tiny; /**< Tiny logo. */
+   glTexture *logo; /**< Tiny logo. */
    const glColour *colour; /**< Faction specific colour. */
 
    /* Enemies */
@@ -78,6 +77,7 @@ typedef struct Faction_ {
 
    /* Behaviour. */
    nlua_env env; /**< Faction specific environment. */
+   double lane_length_per_presence; /**< Influences the choice to build patrolled safe lanes in the way the name suggests. */
 
    /* Equipping. */
    nlua_env equip_env; /**< Faction equipper enviornment. */
@@ -100,6 +100,7 @@ static void faction_sanitizePlayer( Faction* faction );
 static void faction_modPlayerLua( int f, double mod, const char *source, int secondary );
 static int faction_parse( Faction* temp, xmlNodePtr parent );
 static void faction_parseSocial( xmlNodePtr parent );
+static void faction_addStandingScript( Faction* temp, const char* scriptname );
 /* externed */
 int pfaction_save( xmlTextWriterPtr writer );
 int pfaction_load( xmlNodePtr parent );
@@ -339,36 +340,32 @@ const char* faction_default_ai( int f )
 
 
 /**
- * @brief Gets the faction's small logo (64x64 or smaller).
- *
- *    @param f Faction to get the logo of.
- *    @return The faction's small logo image.
+ * @brief Gets the faction's weight for patrolled safe-lane construction (0 means they don't build lanes).
  */
-glTexture* faction_logoSmall( int f )
+double faction_lane_length_per_presence( int f )
 {
    if (!faction_isFaction(f)) {
-      WARN(_("Faction id '%d' is invalid."),f);
-      return NULL;
+      WARN(_("Faction id '%d' is invalid."), f);
+      return 0.;
    }
-
-   return faction_stack[f].logo_small;
+   return faction_stack[f].lane_length_per_presence;
 }
 
 
 /**
- * @brief Gets the faction's tiny logo (24x24 or smaller).
+ * @brief Gets the faction's logo (ideally 256x256).
  *
  *    @param f Faction to get the logo of.
- *    @return The faction's tiny logo image.
+ *    @return The faction's logo image.
  */
-glTexture* faction_logoTiny( int f )
+glTexture* faction_logo( int f )
 {
    if (!faction_isFaction(f)) {
       WARN(_("Faction id '%d' is invalid."),f);
       return NULL;
    }
 
-   return faction_stack[f].logo_tiny;
+   return faction_stack[f].logo;
 }
 
 
@@ -1276,6 +1273,7 @@ static int faction_parse( Faction* temp, xmlNodePtr parent )
       xmlr_strd(node,"longname",temp->longname);
       xmlr_strd(node,"display",temp->displayname);
       xmlr_strd(node,"ai",temp->ai);
+      xmlr_float(node,"lane_length_per_presence",temp->lane_length_per_presence);
       if (xml_isNode(node, "colour")) {
          ctmp = xml_get(node);
          if (ctmp != NULL)
@@ -1317,19 +1315,7 @@ static int faction_parse( Faction* temp, xmlNodePtr parent )
       if (xml_isNode(node, "standing")) {
          if (temp->env != LUA_NOREF)
             WARN(_("Faction '%s' has duplicate 'standing' tag."), temp->name);
-         snprintf( buf, sizeof(buf), FACTIONS_PATH"standing/%s.lua", xml_raw(node) );
-         temp->env = nlua_newEnv(1);
-         nlua_loadStandard( temp->env );
-         dat = ndata_read( buf, &ndat );
-         if (nlua_dobufenv(temp->env, dat, ndat, buf) != 0) {
-            WARN(_("Failed to run standing script: %s\n"
-                  "%s\n"
-                  "Most likely Lua file has improper syntax, please check"),
-                  buf, lua_tostring(naevL,-1));
-            nlua_freeEnv( temp->env );
-            temp->env = LUA_NOREF;
-         }
-         free(dat);
+         faction_addStandingScript( temp, xml_raw(node) );
          continue;
       }
 
@@ -1358,12 +1344,10 @@ static int faction_parse( Faction* temp, xmlNodePtr parent )
       }
 
       if (xml_isNode(node,"logo")) {
-         if (temp->logo_small != NULL)
+         if (temp->logo != NULL)
             WARN(_("Faction '%s' has duplicate 'logo' tag."), temp->name);
-         snprintf( buf, sizeof(buf), FACTION_LOGO_PATH"%s_small.png", xml_get(node) );
-         temp->logo_small = gl_newImage(buf, 0);
-         snprintf( buf, sizeof(buf), FACTION_LOGO_PATH"%s_tiny.png", xml_get(node) );
-         temp->logo_tiny = gl_newImage(buf, 0);
+         snprintf( buf, sizeof(buf), FACTION_LOGO_PATH"%s.webp", xml_get(node) );
+         temp->logo = gl_newImage(buf, 0);
          continue;
       }
 
@@ -1392,6 +1376,32 @@ static int faction_parse( Faction* temp, xmlNodePtr parent )
       WARN(_("Faction '%s' has no Lua and isn't static!"), temp->name);
 
    return 0;
+}
+
+
+/**
+ * @brief Sets up a standing script for a faction.
+ *
+ *    @param temp Faction to associate the script to.
+ *    @param scriptname Name of the lua script to use (e.g., "static").
+ */
+static void faction_addStandingScript( Faction* temp, const char* scriptname ) {
+   char buf[PATH_MAX], *dat;
+   size_t ndat;
+
+   snprintf( buf, sizeof(buf), FACTIONS_PATH"standing/%s.lua", scriptname );
+   temp->env = nlua_newEnv(1);
+   nlua_loadStandard( temp->env );
+   dat = ndata_read( buf, &ndat );
+   if (nlua_dobufenv(temp->env, dat, ndat, buf) != 0) {
+      WARN(_("Failed to run standing script: %s\n"
+            "%s\n"
+            "Most likely Lua file has improper syntax, please check"),
+            buf, lua_tostring(naevL,-1));
+      nlua_freeEnv( temp->env );
+      temp->env = LUA_NOREF;
+   }
+   free(dat);
 }
 
 
@@ -1580,8 +1590,7 @@ static void faction_freeOne( Faction *f )
    free(f->longname);
    free(f->displayname);
    free(f->ai);
-   gl_freeTexture(f->logo_small);
-   gl_freeTexture(f->logo_tiny);
+   gl_freeTexture(f->logo);
    array_free(f->allies);
    array_free(f->enemies);
    if (f->sched_env != LUA_NOREF)
@@ -1774,15 +1783,14 @@ int faction_dynAdd( int base, const char* name, const char* display, const char*
    f->env         = LUA_NOREF;
    f->sched_env   = LUA_NOREF;
    f->flags       = FACTION_STATIC | FACTION_INVISIBLE | FACTION_DYNAMIC | FACTION_KNOWN;
+   faction_addStandingScript( f, "static" );
    if (base>=0) {
       bf = &faction_stack[base];
 
       if (bf->ai!=NULL && f->ai==NULL)
          f->ai = strdup( bf->ai );
-      if (bf->logo_small!=NULL)
-         f->logo_small = gl_dupTexture( bf->logo_small );
-      if (bf->logo_tiny!=NULL)
-         f->logo_tiny = gl_dupTexture( bf->logo_tiny );
+      if (bf->logo!=NULL)
+         f->logo = gl_dupTexture( bf->logo );
 
       for (i=0; i<array_size(bf->allies); i++) {
          tmp = &array_grow( &f->allies );

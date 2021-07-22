@@ -84,10 +84,6 @@ typedef enum ShipStatsType_ {
    SS_TYPE_D_TURRET_ENERGY,   /**< Energy usage of turrets. */
    SS_TYPE_D_TURRET_DAMAGE_AS_DISABLE, /**< Damage converted to disable. */
 
-   /* Nebula. */
-   SS_TYPE_D_NEBULA_ABSORB_SHIELD, /**< Shield nebula resistance. */
-   SS_TYPE_D_NEBULA_ABSORB_ARMOUR, /**< Armour nebula resistance. */
-
    /* Misc. */
    SS_TYPE_D_HEAT_DISSIPATION, /**< Ship heat dissipation. */
    SS_TYPE_D_STRESS_DISSIPATION, /**< Ship stress dissipation. */
@@ -104,43 +100,49 @@ typedef enum ShipStatsType_ {
     * A: Absolute double type data. Should be continuous.
     */
    /* Movement. */
-   SS_TYPE_A_THRUST,           /**< Thrust modifier. */
-   SS_TYPE_A_TURN,             /**< Turn modifier (in deg/s). */
-   SS_TYPE_A_SPEED,            /**< Speed modifier. */
+   SS_TYPE_A_THRUST,          /**< Thrust modifier. */
+   SS_TYPE_A_TURN,            /**< Turn modifier (in deg/s). */
+   SS_TYPE_A_SPEED,           /**< Speed modifier. */
    /* Health. */
-   SS_TYPE_A_ENERGY,            /**< Energy modifier. */
-   SS_TYPE_A_ENERGY_REGEN,      /**< Energy regeneration modifier. */
-   SS_TYPE_A_ENERGY_REGEN_FLAT, /**< Flat energy regeneration modifier (not multiplied). */
-   SS_TYPE_A_ENERGY_LOSS,       /**< Flat energy modifier (not multiplied) and applied linearly. */
-   SS_TYPE_A_SHIELD,            /**< Shield modifier. */
-   SS_TYPE_A_SHIELD_REGEN,      /**< Shield regeneration modifier. */
-   SS_TYPE_A_SHIELD_REGEN_FLAT, /**< Flat shield regeneration modifier (not multiplied). */
-   SS_TYPE_A_ARMOUR,            /**< Armour modifier. */
-   SS_TYPE_A_ARMOUR_REGEN,      /**< Armour regeneration modifier. */
-   SS_TYPE_A_ARMOUR_REGEN_FLAT, /**< Flat armour regeneration modifier (not multiplied). */
+   SS_TYPE_A_ENERGY,          /**< Energy modifier. */
+   SS_TYPE_A_ENERGY_REGEN,    /**< Energy regeneration modifier. */
+   SS_TYPE_A_ENERGY_REGEN_MALUS,/**< Flat energy regeneration modifier (not multiplied). */
+   SS_TYPE_A_ENERGY_LOSS,     /**< Flat energy modifier (not multiplied) and applied linearly. */
+   SS_TYPE_A_SHIELD,          /**< Shield modifier. */
+   SS_TYPE_A_SHIELD_REGEN,    /**< Shield regeneration modifier. */
+   SS_TYPE_A_SHIELD_REGEN_MALUS,/**< Flat shield regeneration modifier (not multiplied). */
+   SS_TYPE_A_ARMOUR,          /**< Armour modifier. */
+   SS_TYPE_A_ARMOUR_REGEN,    /**< Armour regeneration modifier. */
+   SS_TYPE_A_ARMOUR_REGEN_MALUS,/**< Flat armour regeneration modifier (not multiplied). */
    /* Misc. */
-   SS_TYPE_A_CPU_MAX,           /**< Maximum CPU modifier. */
-   SS_TYPE_A_ENGINE_LIMIT,      /**< Engine's mass limit. */
-   SS_TYPE_A_ABSORB,            /**< Damage absorption. */
+   SS_TYPE_A_CPU_MAX,         /**< Maximum CPU modifier. */
+   SS_TYPE_A_ENGINE_LIMIT,    /**< Engine's mass limit. */
+
+   /*
+    * P: Absolute percent type datas. Should be continuous.
+    */
+   SS_TYPE_P_ABSORB,          /**< Damage absorption. */
+   /* Nebula. */
+   SS_TYPE_P_NEBULA_ABSORB,   /**< Nebula resistance. */
 
    /*
     * I: Integer type data. Should be continuous.
     */
    SS_TYPE_I_HIDDEN_JUMP_DETECT,/**< Hidden jump detection. */
-   SS_TYPE_I_FUEL,              /**< Fuel bonus. */
-   SS_TYPE_I_CARGO,             /**< Cargo bonus. */
+   SS_TYPE_I_FUEL,            /**< Fuel bonus. */
+   SS_TYPE_I_CARGO,           /**< Cargo bonus. */
 
    /*
     * B: Boolean type data. Should be continuous.
     */
-   SS_TYPE_B_INSTANT_JUMP, /**< Do not require brake or chargeup to jump. */
-   SS_TYPE_B_REVERSE_THRUST, /**< Ship slows down rather than turning on reverse. */
-   SS_TYPE_B_ASTEROID_SCAN, /**< Ship can gather informations from asteroids. */
+   SS_TYPE_B_INSTANT_JUMP,    /**< Do not require brake or chargeup to jump. */
+   SS_TYPE_B_REVERSE_THRUST,  /**< Ship slows down rather than turning on reverse. */
+   SS_TYPE_B_ASTEROID_SCAN,   /**< Ship can gather informations from asteroids. */
 
    /*
     * End of list.
     */
-   SS_TYPE_SENTINEL          /**< Sentinel for end of types. */
+   SS_TYPE_SENTINEL           /**< Sentinel for end of types. */
 } ShipStatsType;
 
 /**
@@ -198,18 +200,18 @@ typedef struct ShipStats_ {
    double energy_regen;       /**< Energy regeneration modifier. */
    double energy_mod;         /**< Energy multiplier. */
    double energy_regen_mod;   /**< Energy regeneration multiplier. */
-   double energy_usage;       /**< Energy usage (flat). */
+   double energy_regen_malus; /**< Energy usage (flat). */
    double energy_loss;        /**< Energy modifier (flat and linear). */
    double shield;             /**< Shield modifier. */
    double shield_regen;       /**< Shield regeneration modifier. */
    double shield_mod;         /**< Shield multiplier. */
    double shield_regen_mod;   /**< Shield regeneration multiplier. */
-   double shield_usage;       /**< Shield usage (flat). */
+   double shield_regen_malus; /**< Shield usage (flat). */
    double armour;             /**< Armour modifier. */
    double armour_regen;       /**< Armour regeneration modifier. */
    double armour_mod;         /**< Armour multiplier. */
    double armour_regen_mod;   /**< Armour regeneration multiplier. */
-   double armour_damage;      /**< Armour regeneration (flat). */
+   double armour_regen_malus; /**< Armour regeneration (flat). */
 
    /* General */
    double cargo_mod;          /**< Cargo space multiplier. */
@@ -272,8 +274,7 @@ typedef struct ShipStats_ {
    double engine_limit;     /**< Engine limit. */
 
    /* Misc. */
-   double nebu_absorb_shield; /**< Shield nebula resistance. */
-   double nebu_absorb_armour; /**< Armour nebula resistance. */
+   double nebu_absorb;     /**< Shield nebula resistance. */
    int misc_instant_jump;    /**< Do not require brake or chargeup to jump. */
    int misc_reverse_thrust;  /**< Slows down the ship instead of turning it around. */
    int misc_asteroid_scan;   /**< Able to scan asteroids. */

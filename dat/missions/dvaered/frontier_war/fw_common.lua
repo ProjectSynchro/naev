@@ -50,7 +50,7 @@ portrait_tronk      = "dvaered/dv_military_m5.webp" -- Private Tronk: subordinat
 -- Decides wether the player is stronger than a corvette
 function playerMoreThanCorvette()
    local playerclass = player.pilot():ship():class()
-   return (playerclass == "Destroyer" or playerclass == "Cruiser" or playerclass == "Carrier" or playerclass == "Armoured Transport")
+   return (playerclass == "Destroyer" or playerclass == "Cruiser" or playerclass == "Carrier" or or playerclass == "Battleship" or playerclass == "Armoured Transport")
 end
 
 -- When an escort is hailed
@@ -93,8 +93,8 @@ function equipVendettaMace( pilot )
    pilot:addOutfit("S&K Light Combat Plating")
    pilot:addOutfit("Tricon Zephyr II Engine")
    pilot:addOutfit("Milspec Orion 3701 Core System")
-   pilot:addOutfit("Shield Capacitor")
-   pilot:addOutfit("MilSpec Impacto-Plastic Coating")
+   pilot:addOutfit("Shield Capacitor I")
+   pilot:addOutfit("Milspec Impacto-Plastic Coating")
    pilot:addOutfit("Unicorp Mace Launcher", 6)
 
    pilot:setHealth(100,100)

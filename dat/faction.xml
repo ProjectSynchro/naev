@@ -24,24 +24,6 @@
   </allies>
   <enemies>
    <enemy>Pirate</enemy>
-   <enemy>Wanted Pirate</enemy>
-  </enemies>
- </faction>
- <faction>
-  <name>Civilian</name>
-  <ai>civilian</ai>
-  <static />
-  <invisible />
-  <known />
-  <player>0</player>
-  <colour>black</colour>
-  <spawn>civilian</spawn>
-  <standing>static</standing>
-  <allies>
-  </allies>
-  <enemies>
-   <enemy>Pirate</enemy>
-   <enemy>Wanted Pirate</enemy>
   </enemies>
  </faction>
  <faction>
@@ -59,7 +41,6 @@
   <enemies>
    <enemy>Pirate</enemy>
    <enemy>Raider</enemy>
-   <enemy>Wanted Pirate</enemy>
   </enemies>
  </faction>
  <faction>
@@ -78,7 +59,6 @@
   <enemies>
    <enemy>Pirate</enemy>
    <enemy>Raider</enemy>
-   <enemy>Wanted Pirate</enemy>
   </enemies>
  </faction>
  <faction>
@@ -96,7 +76,6 @@
   </allies>
   <enemies>
    <enemy>Pirate</enemy>
-   <enemy>Wanted Pirate</enemy>
    <enemy>Proteron</enemy>
   </enemies>
  </faction>
@@ -112,10 +91,8 @@
   <standing>pirate</standing>
   <equip>pirate</equip>
   <allies>
-   <ally>Wanted Pirate</ally>
   </allies>
   <enemies>
-   <enemy>Civilian</enemy>
    <enemy>Collective</enemy>
    <enemy>Comingout_associates</enemy>
    <enemy>Dvaered</enemy>
@@ -153,6 +130,7 @@
    <enemy>Pirate</enemy>
    <enemy>Collective</enemy>
   </enemies>
+  <lane_length_per_presence>143</lane_length_per_presence>
  </faction>
  <faction>
   <name>Proteron</name>
@@ -168,9 +146,9 @@
   </allies>
   <enemies>
    <enemy>Pirate</enemy>
-   <enemy>Wanted Pirate</enemy>
    <enemy>Proteron Dissident</enemy>
   </enemies>
+  <lane_length_per_presence>143</lane_length_per_presence>
  </faction>
  <faction>
   <name>Frontier</name>
@@ -187,6 +165,7 @@
   <enemies>
    <enemy>Pirate</enemy>
   </enemies>
+  <lane_length_per_presence>143</lane_length_per_presence>
  </faction>
  <faction>
   <name>Traders Guild</name>
@@ -203,7 +182,6 @@
   <enemies>
    <enemy>Pirate</enemy>
    <enemy>Raider</enemy>
-   <enemy>Wanted Pirate</enemy>
   </enemies>
  </faction>
  <faction>
@@ -215,10 +193,12 @@
   <player>0</player>
   <spawn>soromid</spawn>
   <standing>soromid</standing>
+  <equip>soromid</equip>
   <allies/>
   <enemies>
    <enemy>Pirate</enemy>
   </enemies>
+  <lane_length_per_presence>143</lane_length_per_presence>
  </faction>
  <faction>
   <name>Thurion</name>
@@ -232,6 +212,7 @@
   <enemies>
    <enemy>Pirate</enemy>
   </enemies>
+  <lane_length_per_presence>143</lane_length_per_presence>
  </faction>
  <faction>
   <name>Collective</name>
@@ -244,8 +225,8 @@
   <enemies>
    <enemy>Empire</enemy>
    <enemy>Pirate</enemy>
-   <enemy>Wanted Pirate</enemy>
   </enemies>
+  <lane_length_per_presence>143</lane_length_per_presence>
  </faction>
  <faction>
   <name>FLF</name>
@@ -282,6 +263,7 @@
    <enemy>Pirate</enemy>
    <enemy>FLF</enemy>
   </enemies>
+  <lane_length_per_presence>143</lane_length_per_presence>
  </faction>
  <faction>
   <name>Za'lek</name>
@@ -299,6 +281,7 @@
   <enemies>
    <enemy>Pirate</enemy>
   </enemies>
+  <lane_length_per_presence>143</lane_length_per_presence>
  </faction>
  <faction>
   <name>Sirius</name>
@@ -316,8 +299,8 @@
   <enemies>
    <enemy>Pirate</enemy>
    <enemy>Nasin</enemy>
-   <enemy>Wanted Pirate</enemy>
   </enemies>
+  <lane_length_per_presence>143</lane_length_per_presence>
  </faction>
  <faction>
   <name>Goddard</name>
@@ -336,34 +319,7 @@
   <enemies>
    <enemy>Pirate</enemy>
   </enemies>
- </faction>
- <faction>
-  <name>Wanted Pirate</name>
-  <ai>pirate</ai>
-  <display>Pirate</display>
-  <static />
-  <invisible />
-  <known />
-  <logo>pirate</logo>
-  <longname>Galactic Pirates</longname>
-  <player>-100</player>
-  <colour>red</colour>
-  <standing>static</standing>
-  <equip>pirate</equip>
-  <allies>
-   <ally>Pirate</ally>
-  </allies>
-  <enemies>
-   <enemy>Civilian</enemy>
-   <enemy>Collective</enemy>
-   <enemy>Independent</enemy>
-   <enemy>Miner</enemy>
-   <enemy>Proteron</enemy>
-   <enemy>Proteron Dissident</enemy>
-   <enemy>Sirius</enemy>
-   <enemy>Trader</enemy>
-   <enemy>Traders Guild</enemy>
-  </enemies>
+  <lane_length_per_presence>143</lane_length_per_presence>
  </faction>
  <faction>
   <name>Rogue FLF</name>

@@ -3,7 +3,7 @@
 <mission name="Defend the System 1">
   <flags>
    <unique />
-  </flags> 
+  </flags>
   <avail>
    <priority>4</priority>
    <chance>3</chance>
@@ -110,7 +110,7 @@ function create ()
    if ( this_system:presences()["Pirate"]
          or this_system:presences()["Collective"]
          or this_system:presences()["FLF"] ) then
-      misn.finish(false) 
+      misn.finish(false)
    end
 
    missys = {this_system}
@@ -188,13 +188,13 @@ function defend_system()
       end
 
   -- Create a fleet of raiding pirates
-      raider_fleet = addShips( 18, "Hyena", "Raider", raider_position, _("Raider Hyena"), "def" )
+      raider_fleet = addShips( 18, "Hyena", "Raider", raider_position, _("Raider Hyena"), {ai="def"} )
       for k,v in ipairs( raider_fleet) do
          v:setHostile()
       end
 
   -- And a fleet of defending independents
-      defense_fleet = pilot.addFleet( "DTS Defense Fleet", defense_position, "def" )
+      defense_fleet = pilot.addFleet( "DTS Defense Fleet", defense_position, {ai="def"} )
       for k,v in ipairs( defense_fleet) do
          v:setFriendly()
       end
@@ -210,7 +210,7 @@ function defend_system()
       if defender == false then
          misn.finish( true)
       end
-      
+
       if pilot.get( "Raider") == {} then
          player.msg( comm[7])
       end
@@ -262,7 +262,7 @@ end
 -- A fellow warrior says hello in passing if player jumps out of the system without landing
 function ship_enters()
       enter_vect = player.pos()
-      pilot.add( "Mule", "Trader", enter_vect:add( 10, 10), _("Trader Mule"), "def" )
+      pilot.add( "Mule", "Trader", enter_vect:add( 10, 10), _("Trader Mule"), {ai="def"} )
       hook.timer(1000, "congratulations")
 end
 function congratulations()

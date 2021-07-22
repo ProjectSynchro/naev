@@ -31,13 +31,13 @@ function create ()
       evt.finish()
     end
 
-    hyena = pilot.add( "Hyena", "Civilian", true, _("Civilian Hyena") )
-    
+    hyena = pilot.add( "Hyena", "Independent", true )
+
     hook.pilot(hyena, "jump", "finish")
     hook.pilot(hyena, "death", "finish")
     hook.land("finish")
     hook.jumpout("finish")
-    
+
     hailie = hook.timer( 3000., "hailme" );
 end
 

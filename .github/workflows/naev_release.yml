@@ -125,6 +125,7 @@ jobs:
               -Dndata_path=bin \
               --cross-file='source/utils/build/windows_cross_mxe.ini' \
               --buildtype=release \
+              --force-fallback-for=glpk,SuiteSparse \
               -Dnightly=false \
               -Db_lto=true \
               -Dauto_features=enabled \
@@ -217,12 +218,14 @@ jobs:
           meson setup build source \
               --native-file='source/utils/build/linux.ini' \
               --buildtype=release \
+              --force-fallback-for=SuiteSparse \
               -Dprefix="/usr" \
               -Dnightly=false \
               -Db_lto=true \
               -Dauto_features=enabled \
               -Ddocs_c=disabled \
-              -Ddocs_lua=disabled
+              -Ddocs_lua=disabled \
+              -Dsteamruntime=true
 
       - name: Meson Compile
         run: |

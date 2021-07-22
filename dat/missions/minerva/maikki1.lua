@@ -435,7 +435,7 @@ function enter ()
       local j = jump.get( cutscenesys, searchsys )
       local pos = j:pos() + vec2.new(3000,5000)
       local fscav = faction.dynAdd( "Independent", "Scavenger", _("Scavenger") )
-      pscavB = pilot.add( "Vendetta", "Scavenger", pos, _("Scavenger Vendetta"), "independent" )
+      pscavB = pilot.add( "Vendetta", "Scavenger", pos, _("Scavenger Vendetta"), {ai="independent"} )
       pscavB:control()
       pscavB:brake()
       cuttimer = hook.timer( 3000, "cutscene_timer" )
@@ -458,8 +458,8 @@ function enter ()
       local posA = pos + vec2.new( 100, 80 )
       local posB = pos + vec2.new( -50, -20 )
       local fscav = faction.dynAdd( "Independent", "Scavenger", _("Scavenger") )
-      pscavA = pilot.add( "Shark", "Scavenger", posA, nil, "independent" )
-      pscavB = pilot.add( "Vendetta", "Scavenger", posB, nil, "independent" )
+      pscavA = pilot.add( "Shark", "Scavenger", posA, nil, {ai="independent"} )
+      pscavB = pilot.add( "Vendetta", "Scavenger", posB, nil, {ai="independent"} )
       for k,p in ipairs{ pscavA, pscavB } do
          p:control()
          p:setSpeedLimit( 200 )
@@ -651,7 +651,7 @@ end
 function stealthheartbeat ()
    local pp = player.pilot()
    local dist= math.min ( pscavA:pos():dist(pp:pos()), pscavB:pos():dist(pp:pos()) )
-   if not pp:flags().stealth and dist < 1000 / (1+pp:shipstat("ew_hide")/100) then
+   if not pp:flags("stealth") and dist < 1000 / (1+pp:shipstat("ew_hide")/100) then
       if stealthfailing==nil then
          stealthfailing = 0
          player.msg("#rYou are about to be discovered!")
@@ -781,7 +781,7 @@ end
 
 
 function scavengers_encounter ()
-   local bribeamount = 500000 -- 500k credits
+   local bribeamount = 500e3
 
    vn.clear()
    vn.scene()

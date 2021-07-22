@@ -55,6 +55,12 @@ Royalty: %.1f%% of mission earnings
 Money: %s
 Current total royalties: %.1f%% of mission earnings]])
 
+description = _([[This pilot seems to be looking for work.
+
+Ship: %s
+Deposit: %s
+Royalty: %.1f%% of mission earnings]])
+
 pilot_action_text = _([[Would you like to do something with this pilot?
 
 Pilot credentials:]])
@@ -145,8 +151,9 @@ function createPilotNPCs ()
          newpilot.faction = fac:name()
          newpilot.approachtext = npctext[rnd.rnd(1, #npctext)]
          local id = evt.npcAdd(
-               "approachPilot", _("Pilot for Hire"), newpilot.portrait,
-               _("This pilot seems to be looking for work."), 9 )
+            "approachPilot", _("Pilot for Hire"), newpilot.portrait,
+            string.format(description, newpilot.ship, creditstring(newpilot.deposit), newpilot.royalty), 9 )
+
          npcs[id] = newpilot
       end
    end
@@ -246,9 +253,7 @@ function enter ()
       if edata.alive then
          local f = faction.get(edata.faction)
 
-         edata.pilot = pilot.add(edata.ship, f, spawnpoint, edata.name)
-         edata.pilot:rmOutfit("all")
-         edata.pilot:rmOutfit("cores")
+         edata.pilot = pilot.add(edata.ship, f, spawnpoint, edata.name, {naked=true})
          for j, o in ipairs(edata.outfits) do
             edata.pilot:addOutfit(o)
          end
@@ -384,9 +389,11 @@ function pilot_attacked( p, attacker, dmg, arg )
          -- Since all the escorts will turn on the player, we might as well
          -- just have them all disband at once and attack.
          for i, edata in ipairs(escorts) do
-            shiplog.append( logidstr, string.format(_("You turned on your hired escort '%s' (%s)."), edata.name, edata.ship) )
-            pilot_disbanded( edata )
-            edata.pilot:setHostile()
+            if edata.pilot and edata.pilot:exists() then
+               shiplog.append( logidstr, string.format(_("You turned on your hired escort '%s' (%s)."), edata.name, edata.ship) )
+               pilot_disbanded( edata )
+               edata.pilot:setHostile()
+            end
          end
       end
    end

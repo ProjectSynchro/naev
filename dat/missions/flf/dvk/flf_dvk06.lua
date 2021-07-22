@@ -57,7 +57,7 @@ text[3] = _([["Excellent!" You take a seat. "So once again, our mission today is
 title[4] = _("Another Day, Another Victory")
 text[4] = _([[If your comrades were happy about your victory at Raelid, they are ecstatic about your victory at Haleb. As you enter the station, you are met with cheers from what seems to be everyone. It takes you longer than usual to make it to Benito as a result. "Congratulations," she says. "That was an astounding victory, sure to set back the Dvaered oppressors substantially! This is the first time we've pushed them out of Frontier space, and for that, we all thank you. If you haven't noticed, you've made yourself into a bit of a hero!
     "Here is your pay, %s. May we have another great victory later on! Down with the oppressors!" You exchange some more words with Benito, party with the others for a period or two, and then make your way back to your ship for some much-needed rest.]])
-    
+
 
 misn_title = _("Assault on Haleb")
 misn_desc = _("Join with the other FLF pilots for the assault on Raglan Outpost.")
@@ -142,7 +142,7 @@ function enter ()
          ro, s = planet.get( "Raglan Outpost" )
 
          -- Spawn Raglan Outpost ship
-         dv_base = pilot.add( "Raglan Outpost", "Dvaered", ro:pos() , nil, "dvaered_norun" )
+         dv_base = pilot.add( "Raglan Outpost", "Dvaered", ro:pos() , nil, {ai="dvaered_norun"} )
          dv_base:rmOutfit( "all" )
          dv_base:rmOutfit( "cores" )
          dv_base:addOutfit( "Dummy Systems" )
@@ -162,7 +162,7 @@ function enter ()
             "Dvaered Goddard", "Dvaered Ancestor", "Dvaered Phalanx", "Dvaered Vigilance", "Dvaered Ancestor", "Dvaered Phalanx", "Dvaered Vigilance", "Dvaered Ancestor", "Dvaered Ancestor",
             "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta",
             "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta", "Dvaered Vendetta"}
-         dv_fleet = addShips( 1, dv_ships, "Dvaered", ro:pos(), nil, "dvaered_norun" )
+         dv_fleet = addShips( 1, dv_ships, "Dvaered", ro:pos(), nil, {ai="dvaered_norun"} )
 
          for i, j in ipairs( dv_fleet ) do
             j:control()

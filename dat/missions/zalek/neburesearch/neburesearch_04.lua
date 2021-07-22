@@ -17,11 +17,11 @@
 </mission>
 --]]
 --[[
-   
+
    Mission: Shielding Prototype Funding
-   
+
    Description: The player has to help acquiring funds for the shielding prototype. This is going to be hilariously complicated.
-   
+
    Difficulty: Easy to Medium
 
 --]]
@@ -76,10 +76,10 @@ log_text = _([[You helped Dr. Mensing to acquire funding for a shielding prototy
 
 function create()
     -- mission variables
-    credits = 500000  -- 500K
+    credits = 500e3
     homeworld, homeworld_sys = planet.get("Jorla")
     dest_planet, dest_sys = planet.get("Jurai")
-    
+
     -- Spaceport bar stuff
     misn.setNPC(_("Dr. Mensing"), "zalek/unique/mensing.webp", bar_desc)
 end
@@ -91,18 +91,18 @@ function accept()
     end
     tk.msg("", accept_text:format(dest_planet:name(), dest_sys:name()))
     stage = 0
-    
+
     -- Set up mission information
     misn.setTitle(mtitle)
     misn.setReward(misn_reward:format(creditstring(credits)))
     misn.setDesc(mdesc:format(dest_planet:name(), dest_sys:name()))
     misn_marker = misn.markerAdd(dest_sys, "low")
-    
+
     misn.accept()
     osd_msg[1] = osd_fly_to:format(dest_planet:name(), dest_sys:name())
     osd_msg[2] = osd_return:format(homeworld:name(), homeworld_sys:name())
     misn.osdCreate(osd_title, osd_msg)
-    
+
     hook.land("land")
     hook.jumpin("jumpin")
     hook.takeoff("takeoff")

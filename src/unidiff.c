@@ -29,6 +29,7 @@
 #include "ndata.h"
 #include "nstring.h"
 #include "nxml.h"
+#include "safelanes.h"
 #include "space.h"
 
 
@@ -83,6 +84,10 @@ typedef enum UniHunkType_ {
    HUNK_TYPE_ASSET_LEGALMARKET,
    HUNK_TYPE_JUMP_ADD,
    HUNK_TYPE_JUMP_REMOVE,
+   HUNK_TYPE_SSYS_BACKGROUND,
+   HUNK_TYPE_SSYS_BACKGROUND_REVERT, /* For internal usage. */
+   HUNK_TYPE_SSYS_FEATURES,
+   HUNK_TYPE_SSYS_FEATURES_REVERT, /* For internal usage. */
    /* Target should be tech. */
    HUNK_TYPE_TECH_ADD,
    HUNK_TYPE_TECH_REMOVE,
@@ -136,10 +141,14 @@ typedef struct UniDiff_ {
  */
 static UniDiff_t *diff_stack = NULL; /**< Currently applied universe diffs. */
 
+/* Useful variables. */
+static int diff_universe_changed = 0; /**< Whether or not the universe changed. */
+
 
 /*
  * Prototypes.
  */
+static int diff_applyInternal( const char *name, int oneshot );
 NONNULL( 1 ) static UniDiff_t *diff_get( const char *name );
 static UniDiff_t *diff_newDiff (void);
 static int diff_removeDiff( UniDiff_t *diff );
@@ -151,6 +160,8 @@ static void diff_hunkFailed( UniDiff_t *diff, UniHunk_t *hunk );
 static void diff_hunkSuccess( UniDiff_t *diff, UniHunk_t *hunk );
 static void diff_cleanup( UniDiff_t *diff );
 static void diff_cleanupHunk( UniHunk_t *hunk );
+/* Misc. */;
+static int diff_checkUpdateUniverse (void);
 /* Externed. */
 int diff_save( xmlTextWriterPtr writer ); /**< Used in save.c */
 int diff_load( xmlNodePtr parent ); /**< Used in save.c */
@@ -235,6 +246,19 @@ static UniDiff_t* diff_get( const char *name )
  */
 int diff_apply( const char *name )
 {
+   return diff_applyInternal( name, 1 );
+}
+
+
+/**
+ * @brief Applies a diff to the universe.
+ *
+ *    @param name Diff to apply.
+ *    @param oneshot Whether or not this diff should be applied as a single one-shot diff.
+ *    @return 0 on success.
+ */
+static int diff_applyInternal( const char *name, int oneshot )
+{
    xmlNodePtr node;
    xmlDocPtr doc;
    char *filename;
@@ -243,6 +267,10 @@ int diff_apply( const char *name )
    /* Check if already applied. */
    if (diff_isApplied(name))
       return 0;
+
+   /* Reset change variable. */
+   if (oneshot)
+      diff_universe_changed = 0;
 
    filename = NULL;
    for (i=0; i<array_size(diff_available); i++) {
@@ -272,6 +300,10 @@ int diff_apply( const char *name )
    /* Re-compute the economy. */
    economy_execQueued();
    economy_initialiseCommodityPrices();
+
+   /* Update universe. */
+   if (oneshot)
+      diff_checkUpdateUniverse();
 
    return 0;
 }
@@ -337,7 +369,7 @@ static int diff_patchSystem( UniDiff_t *diff, xmlNodePtr node )
       }
       else if (xml_isNode(cur,"jump")) {
          buf = xml_get( cur );
-         if ( buf == NULL ) {
+         if (buf == NULL) {
             WARN( _( "Unidiff '%s': Null hunk type." ), diff->name );
             continue;
          }
@@ -357,6 +389,32 @@ static int diff_patchSystem( UniDiff_t *diff, xmlNodePtr node )
             WARN(_("Unidiff '%s': Unknown hunk type '%s' for jump '%s'."), diff->name, buf, hunk.u.name);
 
          hunk.node = cur;
+
+         /* Apply diff. */
+         if (diff_patchHunk( &hunk ) < 0)
+            diff_hunkFailed( diff, &hunk );
+         else
+            diff_hunkSuccess( diff, &hunk );
+         continue;
+      }
+      else if (xml_isNode(cur,"background")) {
+         hunk.target.type = base.target.type;
+         hunk.target.u.name = strdup(base.target.u.name);
+         hunk.type = HUNK_TYPE_SSYS_BACKGROUND;
+         hunk.u.name = xml_getStrd(cur);
+
+         /* Apply diff. */
+         if (diff_patchHunk( &hunk ) < 0)
+            diff_hunkFailed( diff, &hunk );
+         else
+            diff_hunkSuccess( diff, &hunk );
+         continue;
+      }
+      else if (xml_isNode(cur,"features")) {
+         hunk.target.type = base.target.type;
+         hunk.target.u.name = strdup(base.target.u.name);
+         hunk.type = HUNK_TYPE_SSYS_FEATURES;
+         hunk.u.name = xml_getStrd(cur);
 
          /* Apply diff. */
          if (diff_patchHunk( &hunk ) < 0)
@@ -608,7 +666,7 @@ static int diff_patchFaction( UniDiff_t *diff, xmlNodePtr node )
  */
 static int diff_patch( xmlNodePtr parent )
 {
-   int i, univ_update;
+   int i;
    UniDiff_t *diff;
    UniHunk_t *fail;
    xmlNodePtr node;
@@ -620,24 +678,21 @@ static int diff_patch( xmlNodePtr parent )
    memset(diff, 0, sizeof(UniDiff_t));
    xmlr_attr_strd(parent,"name",diff->name);
 
-   /* Whether or not we need to update the universe. */
-   univ_update = 0;
-
    node = parent->xmlChildrenNode;
    do {
       xml_onlyNodes(node);
       if (xml_isNode(node,"system")) {
-         univ_update = 1;
+         diff_universe_changed = 1;
          diff_patchSystem( diff, node );
       }
       else if (xml_isNode(node, "tech"))
          diff_patchTech( diff, node );
       else if (xml_isNode(node, "asset")) {
-         univ_update = 1;
+         diff_universe_changed = 1;
          diff_patchAsset( diff, node );
       }
       else if (xml_isNode(node, "faction")) {
-         univ_update = 1;
+         diff_universe_changed = 1;
          diff_patchFaction( diff, node );
       }
       else
@@ -719,10 +774,6 @@ static int diff_patch( xmlNodePtr parent )
       }
    }
 
-   /* Prune presences if necessary. */
-   if (univ_update)
-      space_reconstructPresences();
-
    /* Update overlay map just in case. */
    ovr_refresh();
    return 0;
@@ -738,6 +789,7 @@ static int diff_patch( xmlNodePtr parent )
 static int diff_patchHunk( UniHunk_t *hunk )
 {
    Planet *p;
+   StarSystem *ssys;
    int a, b;
 
    switch (hunk->type) {
@@ -745,9 +797,11 @@ static int diff_patchHunk( UniHunk_t *hunk )
       /* Adding an asset. */
       case HUNK_TYPE_ASSET_ADD:
          planet_updateLand( planet_get(hunk->u.name) );
+         diff_universe_changed = 1;
          return system_addPlanet( system_get(hunk->target.u.name), hunk->u.name );
       /* Removing an asset. */
       case HUNK_TYPE_ASSET_REMOVE:
+         diff_universe_changed = 1;
          return system_rmPlanet( system_get(hunk->target.u.name), hunk->u.name );
       /* Making an asset a black market. */
       case HUNK_TYPE_ASSET_BLACKMARKET:
@@ -760,10 +814,34 @@ static int diff_patchHunk( UniHunk_t *hunk )
 
       /* Adding a Jump. */
       case HUNK_TYPE_JUMP_ADD:
+         diff_universe_changed = 1;
          return system_addJumpDiff( system_get(hunk->target.u.name), hunk->node );
       /* Removing a jump. */
       case HUNK_TYPE_JUMP_REMOVE:
+         diff_universe_changed = 1;
          return system_rmJump( system_get(hunk->target.u.name), hunk->u.name );
+
+      /* Changing system background. */
+      case HUNK_TYPE_SSYS_BACKGROUND:
+         ssys = system_get(hunk->target.u.name);
+         hunk->o.name = ssys->background;
+         ssys->background = hunk->u.name;
+         return 0;
+      case HUNK_TYPE_SSYS_BACKGROUND_REVERT:
+         ssys = system_get(hunk->target.u.name);
+         ssys->background = (char*)hunk->o.name;
+         return 0;
+
+      /* Changing system features designation. */
+      case HUNK_TYPE_SSYS_FEATURES:
+         ssys = system_get(hunk->target.u.name);
+         hunk->o.name = ssys->features;
+         ssys->features = hunk->u.name;
+         return 0;
+      case HUNK_TYPE_SSYS_FEATURES_REVERT:
+         ssys = system_get(hunk->target.u.name);
+         ssys->features = (char*)hunk->o.name;
+         return 0;
 
       /* Adding a tech. */
       case HUNK_TYPE_TECH_ADD:
@@ -778,6 +856,7 @@ static int diff_patchHunk( UniHunk_t *hunk )
          if (p==NULL)
             return -1;
          hunk->o.name = faction_name( p->faction );
+         diff_universe_changed = 1;
          return planet_setFaction( p, faction_get(hunk->u.name) );
       case HUNK_TYPE_ASSET_FACTION_REMOVE:
          return planet_setFaction( planet_get(hunk->target.u.name), faction_get(hunk->o.name) );
@@ -911,6 +990,7 @@ void diff_remove( const char *name )
    diff_removeDiff(diff);
 
    economy_execQueued();
+   diff_checkUpdateUniverse();
 }
 
 
@@ -923,6 +1003,7 @@ void diff_clear (void)
       diff_removeDiff(&diff_stack[array_size(diff_stack)-1]);
 
    economy_execQueued();
+   diff_checkUpdateUniverse();
 }
 
 
@@ -989,6 +1070,13 @@ static int diff_removeDiff( UniDiff_t *diff )
             break;
          case HUNK_TYPE_JUMP_REMOVE:
             hunk.type = HUNK_TYPE_JUMP_ADD;
+            break;
+
+         case HUNK_TYPE_SSYS_BACKGROUND:
+            hunk.type = HUNK_TYPE_SSYS_BACKGROUND_REVERT;
+            break;
+         case HUNK_TYPE_SSYS_FEATURES:
+            hunk.type = HUNK_TYPE_SSYS_FEATURES_REVERT;
             break;
 
          case HUNK_TYPE_TECH_ADD:
@@ -1071,6 +1159,8 @@ static void diff_cleanupHunk( UniHunk_t *hunk )
       case HUNK_TYPE_ASSET_LEGALMARKET:
       case HUNK_TYPE_JUMP_ADD:
       case HUNK_TYPE_JUMP_REMOVE:
+      case HUNK_TYPE_SSYS_BACKGROUND:
+      case HUNK_TYPE_SSYS_FEATURES:
       case HUNK_TYPE_TECH_ADD:
       case HUNK_TYPE_TECH_REMOVE:
       case HUNK_TYPE_ASSET_FACTION:
@@ -1129,6 +1219,7 @@ int diff_load( xmlNodePtr parent )
    char *     diffName;
 
    diff_clear();
+   diff_universe_changed = 0;
 
    node = parent->xmlChildrenNode;
    do {
@@ -1141,14 +1232,29 @@ int diff_load( xmlNodePtr parent )
                   WARN( _( "Expected node \"diff\" to contain the name of a unidiff. Was empty." ) );
                   continue;
                }
-               diff_apply( diffName );
+               diff_applyInternal( diffName, 0 );
             }
          } while (xml_nextNode(cur));
       }
    } while (xml_nextNode(node));
 
-   return 0;
+   /* Update as necessary. */
+   diff_checkUpdateUniverse();
 
+   return 0;
 }
 
+
+/**
+ * @brief Checks and updates the universe if necessary.
+ */
+static int diff_checkUpdateUniverse (void)
+{
+   if (!diff_universe_changed)
+      return 0;
+   space_reconstructPresences();
+   safelanes_recalculate();
+   diff_universe_changed = 0;
+   return 1;
+}
 

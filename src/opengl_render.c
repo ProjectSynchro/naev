@@ -156,6 +156,35 @@ void gl_renderRectH( const gl_Matrix4 *H, const glColour *c, int filled )
 
 
 /**
+ * @brief Renders an OK / Not OK status (green circle or slashed red circle).
+ *
+ *    @param x X position to render rectangle at.
+ *    @param y Y position to render rectangle at.
+ *    @param w Rectangle width.
+ *    @param h Rectangle height.
+ *    @param ok Boolean to represent with the drawing.
+ */
+void gl_renderStatus( double x, double y, double w, double h, int ok )
+{
+   gl_Matrix4 projection;
+
+   projection = gl_view_matrix;
+   projection = gl_Matrix4_Translate( projection, x + w/2, y + h/2, 0 );
+   projection = gl_Matrix4_Scale( projection, w/2, h/2, 1 );
+
+   glUseProgram( shaders.status.program );
+   gl_Matrix4_Uniform( shaders.status.projection, projection );
+   glUniform1f( shaders.status.ok, ok );
+   glEnableVertexAttribArray( shaders.status.vertex );
+   gl_vboActivateAttribOffset( gl_circleVBO, shaders.status.vertex, 0, 2, GL_FLOAT, 0 );
+   glDrawArrays( GL_TRIANGLE_STRIP, 0, 4 );
+   glDisableVertexAttribArray( shaders.status.vertex );
+   glUseProgram(0);
+   gl_checkErr();
+}
+
+
+/**
  * @brief Renders a cross at a given position.
  *
  *    @param x X position to center at.
@@ -615,6 +644,37 @@ void gl_blitScale( const glTexture* texture,
          tx, ty, texture->srw, texture->srh, c, 0. );
 }
 
+
+/**
+ * @brief Blits a texture scaling it to fit a rectangle, but conserves aspect
+ * ratio.
+ *
+ *    @param texture Texture to blit.
+ *    @param bx X position of the texture in screen coordinates.
+ *    @param by Y position of the texture in screen coordinates.
+ *    @param bw Width to scale to.
+ *    @param bh Height to scale to.
+ *    @param c Colour to use (modifies texture colour).
+ */
+void gl_blitScaleAspect( const glTexture* texture,
+   double bx, double by, double bw, double bh,
+   const glColour *c )
+{
+   double scale;
+   double nw, nh;
+
+   scale = MIN( bw / texture->w, bh / texture->h );
+
+   nw = scale * texture->w;
+   nh = scale * texture->h;
+
+   bx += (bw-nw)/2.;
+   by += (bh-nh)/2.;
+
+   gl_blitScale( texture, bx, by, nw, nh, c );
+}
+
+
 /**
  * @brief Blits a texture to a position
  *
@@ -796,7 +856,7 @@ void gl_drawLine( const double x1, const double y1,
    double a, s;
 
    a = atan2( y2-y1, x2-x1 );
-   s = sqrt( (x2-x1)*(x2-x1) + (y2-y1)*(y2-y1) );
+   s = hypotf( x2-x1, y2-y1 );
 
    projection = gl_view_matrix;
 

@@ -6,7 +6,7 @@
   <mass>1</mass>
   <price>15000</price>
   <description>This weapon is a cheat. It is not meant to be used by players.</description>
-  <gfx_store>laser2.png</gfx_store>
+  <gfx_store>laser2.webp</gfx_store>
   <cpu>-1</cpu>
   <rarity>6</rarity></general>
  <specific type="bolt">
@@ -25,7 +25,6 @@
    <type>normal</type>
    <penetrate>30</penetrate>
    <physical>15</physical>
-   <disable>1</disable>
   </damage>
  </specific>
 </outfit>

@@ -35,7 +35,7 @@ require "numstring"
 
 bar_desc = _("You notice Lt. Commander Dimitri at one of the booths.")
 misn_title = _("Collective Espionage")
-misn_reward = creditstring(700000) -- 700K
+misn_reward = creditstring(700e3)
 misn_desc = {}
 misn_desc[1] = _("Land on %s in the %s system to monitor Collective communications")
 misn_desc[2] = _("Travel back to %s in %s")
@@ -57,7 +57,7 @@ text[6] = _([[As your ship touches ground, you see Lt. Commander Dimitri come ou
 osd_msg = {}
 osd_msg[1] = _("Fly to %s and land on %s")
 osd_msg[2] = _("Return to %s with your findings")
-osd_msg["__save"] = true 
+osd_msg["__save"] = true
 
 log_text = _([[You monitored Collective communications for the Empire again, this time while landed on Eiroik. Lt. Commander Dimitri told you to meet him in the bar on Omega Station again later.]])
 

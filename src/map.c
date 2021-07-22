@@ -24,6 +24,7 @@
 #include "map_find.h"
 #include "map_system.h"
 #include "mission.h"
+#include "nebula.h"
 #include "ndata.h"
 #include "nmath.h"
 #include "nstring.h"
@@ -439,7 +440,7 @@ static void map_update( unsigned int wid )
 {
    int i;
    StarSystem *sys;
-   int f, h, x, y;
+   int f, h, x, y, logow, logoh;
    unsigned int services;
    int hasPlanets;
    char t;
@@ -447,7 +448,7 @@ static void map_update( unsigned int wid )
    char buf[PATH_MAX];
    int p;
    glTexture *logo;
-   double w;
+   double w, dmg, itf;
    Commodity *c;
 
    /* Needs map to update. */
@@ -570,11 +571,13 @@ static void map_update( unsigned int wid )
          snprintf( buf, sizeof(buf), "%s", faction_longname(f) );
 
       /* Modify the image. */
-      logo = faction_logoSmall(f);
-      window_modifyImage( wid, "imgFaction", logo, 0, 0 );
+      logo = faction_logo(f);
+      logow = logo == NULL ? 0 : logo->w * (double)FACTION_LOGO_SM / MAX( logo->w, logo->h );
+      logoh = logo == NULL ? 0 : logo->h * (double)FACTION_LOGO_SM / MAX( logo->w, logo->h );
+      window_modifyImage( wid, "imgFaction", logo, logow, logoh );
       if (logo != NULL)
          window_moveWidget( wid, "imgFaction",
-               -90 + logo->w/2, -20 - 32 - 10 - gl_defFont.h + logo->h/2);
+               -90 + logow/2, -20 - 32 - 10 - gl_defFont.h + logoh/2);
 
       /* Modify the text */
       window_modifyText( wid, "txtFaction", buf );
@@ -681,12 +684,13 @@ static void map_update( unsigned int wid )
             adj = "";
 
          /* Volatility */
-         if (sys->nebu_volatility > 700.)
-            p += scnprintf(&buf[p], sizeof(buf)-p, _("#rVolatile %sNebula#0"), adj);
-         else if (sys->nebu_volatility > 300.)
-            p += scnprintf(&buf[p], sizeof(buf)-p, _("#oDangerous %sNebula#0"), adj);
+         dmg = sys->nebu_volatility;
+         if (sys->nebu_volatility > 50.)
+            p += scnprintf(&buf[p], sizeof(buf)-p, _("#rVolatile %sNebula (%.1f MW)#0"), adj, dmg);
+         else if (sys->nebu_volatility > 20.)
+            p += scnprintf(&buf[p], sizeof(buf)-p, _("#oDangerous %sNebula (%.1f MW)#0"), adj, dmg);
          else if (sys->nebu_volatility > 0.)
-            p += scnprintf(&buf[p], sizeof(buf)-p, _("#yUnstable %sNebula#0"), adj);
+            p += scnprintf(&buf[p], sizeof(buf)-p, _("#yUnstable %sNebula (%.1f MW)#0"), adj, dmg);
          else
             p += scnprintf(&buf[p], sizeof(buf)-p, _("%sNebula"), adj);
       }
@@ -695,12 +699,13 @@ static void map_update( unsigned int wid )
          if (buf[0] != '\0')
             p += scnprintf(&buf[p], sizeof(buf)-p, _(", "));
 
+         itf = sys->interference;
          if (sys->interference > 700.)
-            p += scnprintf(&buf[p], sizeof(buf)-p, _("#rDense Interference#0"));
+            p += scnprintf(&buf[p], sizeof(buf)-p, _("#rDense Interference (%.0f%%)#0"), itf);
          else if (sys->interference < 300.)
-            p += scnprintf(&buf[p], sizeof(buf)-p, _("#oLight Interference#0"));
+            p += scnprintf(&buf[p], sizeof(buf)-p, _("#oLight Interference (%.0f%%)#0"), itf);
          else
-            p += scnprintf(&buf[p], sizeof(buf)-p, _("#yInterference#0"));
+            p += scnprintf(&buf[p], sizeof(buf)-p, _("#yInterference (%.0f%%)#0"), itf);
       }
       /* Asteroids. */
       if (array_size(sys->asteroids) > 0) {

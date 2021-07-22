@@ -35,6 +35,7 @@
 #include "nlua_camera.h"
 #include "nlua_cli.h"
 #include "nlua_col.h"
+#include "nlua_debug.h"
 #include "nlua_linopt.h"
 #include "nlua_music.h"
 #include "nlua_tex.h"
@@ -188,11 +189,10 @@ static int cli_printCore( lua_State *L, int cli_only )
  */
 int cli_warn( lua_State *L )
 {
-   const char *msg;
-
-   msg = luaL_checkstring(L,1);
-   logprintf( stderr, 1, _("Warning: %s\n"), msg );
-
+   const char *msg = luaL_checkstring(L,1);
+   WARN("%s", msg );
+   /* Add to console. */
+   cli_printCoreString( msg, 1 );
    return 0;
 }
 

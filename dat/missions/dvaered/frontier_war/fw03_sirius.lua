@@ -231,7 +231,7 @@ function enter()
             ambJp = jump.get(system.cur(), ambStart) -- We assume there are no one-way jumps
          end
 
-         escort[1]:control(true)
+         escort[1]:taskClear()
          escort[1]:moveto( ambJp:pos() )  -- Let's say Strafer knows where they are supposed to come from...
 
          if system.cur() == ambushsys then
@@ -656,7 +656,7 @@ end
 
 -- Spawn Hamelsen and make her escape
 function spawnHamelsen( origin )
-   hamelsen = pilot.add( "Schroedinger", "Civilian", origin , _("Civilian Schroedinger") )
+   hamelsen = pilot.add( "Schroedinger", "Independent", origin )
    hamelsen:setInvincible()
    hamelsen:setFaction("Warlords")
    hamelsen:rename(_("Colonel Hamelsen"))

@@ -142,7 +142,7 @@ function accept ()
       hook.land("land")
       hook.takeoff("takeoff")
       hook.enter("enter")
-      
+
       osd_desc[1] = osd_desc[1]:format( start_planet:name(), missys:name() )
       osd_desc[2] = osd_desc[2]:format( start_planet:name(), missys:name() )
       osd_desc[3] = osd_desc[3]:format( dest_planet:name(), missys:name() )
@@ -292,7 +292,7 @@ end
 
 
 function spawn_drone ()
-   local p = pilot.add( "Hyena", "Dummy", dest_planet, _("Practice Drone"), "baddie_norun" )
+   local p = pilot.add( "Hyena", "Dummy", dest_planet, _("Practice Drone"), {ai="baddie_norun"} )
    p:rmOutfit( "all" )
    p:rmOutfit( "cores" )
    p:addOutfit( "Previous Generation Small Systems" )

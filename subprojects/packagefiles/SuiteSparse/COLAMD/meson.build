@@ -13,7 +13,7 @@ system_deps = [
 ]
 
 libcolamd = static_library(
-   'COLAMD',
+   'colamd',
    source,
    dependencies: system_deps,
    include_directories: include

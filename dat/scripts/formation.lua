@@ -30,33 +30,31 @@ function formations.buffer(leader)
    local class_count = count_classes(pilots)
    local angle, radius
 
-   local radii = {["Yacht"] = -500,
-                  ["Luxury Yacht"] = -400,
-                  ["Courier"] = -300,
-                  ["Armoured Transport"] = -200,
+   local radii = {["Courier"] = -300,
                   ["Freighter"] = -100,
+                  ["Armoured Transport"] = -200,
+                  ["Bulk Freighter"] = -100,
                   ["Carrier"] = 100,
+                  ["Battleship"] = 100,
                   ["Cruiser"] = 200,
                   ["Destroyer"] = 300,
                   ["Corvette"] = 400,
                   ["Bomber"] = 500,
-                  ["Heavy Drone"] = 600,
                   ["Fighter"] = 700,
-                  ["Drone"] = 800,
+                  ["Interceptor"] = 800,
                   ["Scout"] = 900 } -- Different radii for each class.
-   local count = {["Yacht"] = 1,
-                  ["Luxury Yacht"] = 1,
-                  ["Courier"] = 1,
-                  ["Armoured Transport"] = 1,
+   local count = {["Courier"] = 1,
                   ["Freighter"] = 1,
+                  ["Armoured Transport"] = 1,
+                  ["Bulk Freighter"] = 1,
                   ["Carrier"] = 1,
+                  ["Battleship"] = 1,
                   ["Cruiser"] = 1,
                   ["Destroyer"] = 1,
                   ["Corvette"] = 1,
                   ["Bomber"] = 1,
-                  ["Heavy Drone"] = 1,
                   ["Fighter"] = 1,
-                  ["Drone"] = 1,
+                  ["Interceptor"] = 1,
                   ["Scout"] = 1 } -- Need to keep track of positions already iterated through.
    for i, p in ipairs(pilots) do
       ship_class = p:ship():class() -- For readability.
@@ -96,7 +94,7 @@ function formations.wedge(leader)
       radius = 100 * (math.floor(i / 2) + 1) -- Increase the radius every 2 positions.
    end
 end
-      
+
 function formations.echelon_left(leader)
    --This formation forms a "/", with the fleader in the middle.
    local pilots = leader:followers()

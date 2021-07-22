@@ -456,7 +456,7 @@ static void map_system_render( double bx, double by, double w, double h, void *d
          if (i==array_size(sys->planets)) /* saw them all and all the same */
             cnt += scnprintf( &buf[cnt], sizeof(buf)-cnt, _("Faction: %s\nStanding: %s\n"), faction_longname(f), faction_getStandingText( f ) );
          /* display the logo */
-         logo = faction_logoSmall( f );
+         logo = faction_logo( f );
          if ( logo != NULL ) {
             gl_blitScale( logo, bx + pitch + nameWidth + 200,
                   by + h - 21, 20, 20, &cWhite );
@@ -503,7 +503,7 @@ static void map_system_render( double bx, double by, double w, double h, void *d
      p = cur_planetObj_sel;
      if (p->faction > 0 ) {/* show the faction */
         char factionBuf[64];
-        logo = faction_logoSmall( p->faction );
+        logo = faction_logo( p->faction );
         if ( logo != NULL ) {
            gl_blitScale( logo, bx + pitch + nameWidth + 200, by + h - 21, 20, 20, &cWhite );
          }
@@ -513,7 +513,7 @@ static void map_system_render( double bx, double by, double w, double h, void *d
 
      }
 
-     cnt+=scnprintf( &buf[cnt], sizeof(buf)-cnt, _("Planet: %s\nPlanetary class: %s    Population: %.0f\n"), _(p->name), p->class, (double)p->population );
+     cnt+=scnprintf( &buf[cnt], sizeof(buf)-cnt, _("Planet: %s\nPlanetary class: %s    Population: roughly %s\n"), _(p->name), p->class, space_populationStr( p->population ) );
      if (!planet_hasService( p, PLANET_SERVICE_INHABITED ))
         cnt+=scnprintf( &buf[cnt], sizeof(buf)-cnt, _("No space port here\n") );
      else if (p->can_land || p->bribed ) {
@@ -613,7 +613,6 @@ static void map_system_array_update( unsigned int wid, char* str ) {
          strncpy( buf_license, _(outfit->license), sizeof(buf_license)-1 );
       else
          snprintf( buf_license, sizeof( buf_license ), "#r%s#0", _(outfit->license) );
-      buf_license[ sizeof( buf_license )-1 ] = '\0';
 
       mass = outfit->mass;
       if ( (outfit_isLauncher(outfit) || outfit_isFighterBay(outfit)) &&
@@ -640,6 +639,12 @@ static void map_system_array_update( unsigned int wid, char* str ) {
 
    /* update text */
       price2str( buf_price, ship_buyPrice( ship ), player.p->credits, 2 );
+      if (ship->license == NULL)
+         strncpy( buf_license, _("None"), sizeof(buf_license)-1 );
+      else if (player_hasLicense( ship->license ))
+         strncpy( buf_license, _(ship->license), sizeof(buf_license)-1 );
+      else
+         snprintf( buf_license, sizeof(buf_license), "#r%s#0", _(ship->license) );
 
       snprintf( infobuf, sizeof(infobuf),
                  _("#nModel:#0 %s    "
@@ -664,7 +669,7 @@ static void map_system_array_update( unsigned int wid, char* str ) {
                    "#nLicense:#0 %s\n"
                    "%s"),
                  _(ship->name),
-                 _(ship_class(ship)),
+                 _(ship_classDisplay(ship)),
                  _(ship->description),
                  _(ship->fabricator),
                  ship->crew,
@@ -684,7 +689,7 @@ static void map_system_array_update( unsigned int wid, char* str ) {
                  ship->fuel, n_( "unit", "units", ship->fuel ),
                  ship->fuel_consumption, n_( "unit", "units", ship->fuel_consumption ),
                  buf_price,
-                 (ship->license != NULL) ? _(ship->license) : _("None"),
+                 buf_license,
                  ship->desc_stats
                  );
    } else if ( ( strcmp( str, MAPSYS_TRADE ) == 0 ) ) {

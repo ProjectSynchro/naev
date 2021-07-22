@@ -73,7 +73,7 @@ function create ()
     missys = {misn_target}
     if not misn.claim(missys) then
         abort()
-    end  
+    end
 
    misn.setNPC( _("Lt. Commander"), "empire/unique/dimitri.webp", bar_desc )
 end
@@ -123,7 +123,7 @@ function enter()
       pilot.clear()
       pilot.toggleSpawn(false)
       misn.osdActive(2)
-      hook.timer(500, "proximity", {location = vec2.new(8000, -20000), radius = 5000, funcname = "spotdrone"}) 
+      hook.timer(500, "proximity", {location = vec2.new(8000, -20000), radius = 5000, funcname = "spotdrone"})
    elseif misn_stage == 0 then
       misn.osdActive(1)
    end
@@ -139,11 +139,11 @@ end
 
 
 function spotdrone()
-   p = pilot.add( "Drone", "Collective", vec2.new(8000, -20000), _("Collective Drone"), "scout" )
+   p = pilot.add( "Drone", "Collective", vec2.new(8000, -20000), _("Collective Drone"), {ai="scout"} )
    p:control()
    p:setHilight(true)
    idle()
-   
+
    hook.pilot( p, "death", "kill")
    hook.pilot( p, "idle", "idle")
 

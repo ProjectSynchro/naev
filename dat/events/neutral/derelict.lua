@@ -55,25 +55,28 @@ missionlist = {}
 
 
 function create ()
+    local nebu_dens, nebu_vol = system.cur():nebula()
+    if nebu_vol > 0 then
+      evt.finish()
+    end
 
     -- Get the derelict's ship.
     r = rnd.rnd()
     if r > 0.8 then
-        ship = "Trader Gawain"
+        ship = "Gawain"
     elseif r > 0.6 then
-        ship = "Trader Mule"
+        ship = "Mule"
     elseif r > 0.4 then
-        ship = "Trader Koala"
-    else 
-        ship = "Trader Llama"
+        ship = "Koala"
+    else
+        ship = "Llama"
     end
-    
+
     -- Create the derelict.
     angle = rnd.rnd() * 2 * math.pi
     dist  = rnd.rnd(400, system.cur():radius() * 0.6)
     pos   = vec2.new( dist * math.cos(angle), dist * math.sin(angle) )
-    p     = pilot.addFleet(ship, pos, "dummy")[1]
-    p:setFaction("Derelict")
+    p     = pilot.add(ship, "Derelict", pos, nil, {ai="dummy"})
     p:disable()
     p:rename("Derelict")
     hook.pilot(p, "board", "board")
@@ -190,13 +193,13 @@ end
 function missionevent()
     -- Fetch all missions that haven't been flagged as done yet.
     local mymissions = {}
-    
+
     for i, mission in ipairs(missionlist) do
         if not player.misnDone(mission) then
             mymissions[#mymissions + 1] = mission
         end
     end
-    
+
     -- If no missions are available, default to a neutral event.
     if #mymissions == 0 then
         neutralevent()
@@ -204,7 +207,7 @@ function missionevent()
         -- Roll a random mission and start it.
         local select = rnd.rnd(1, #mymissions)
         naev.missionStart(mymissions[select])
-    
+
         destroyevent()
     end
 end

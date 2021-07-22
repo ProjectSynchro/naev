@@ -29,7 +29,7 @@ function turnon( p, po )
    mem.active = true
 
    local ps = p:stats()
-   po:set( "shield_usage", ps.shield * shielddrain )
+   po:set( "shield_regen_malus", ps.shield * shielddrain )
    po:set( "energy_loss", ps.mass * energydrain )
    mem.timer = active
 
@@ -55,7 +55,7 @@ function turnoff( p, po )
    -- Make visible
    p:setInvisible( false )
    p:setNoRender( false )
-  
+
    -- Turn off shader
    shader_off()
 

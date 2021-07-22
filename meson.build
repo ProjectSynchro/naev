@@ -77,17 +77,27 @@ if buildExec.disabled() == false
       libxml2 = cc.find_library('xml2', required: true)  # e.g., MacOSX SDK
    endif
 
+   pkgconfig_physfs = dependency('physfs', required: false)
+   if not pkgconfig_physfs.found()
+      physfs = cc.find_library('physfs', required: false, has_headers: ['physfs.h'])
+      if not physfs.found()
+         physfs = dependency('physfs', required: true, fallback: ['physfs', 'physfs_dep'])
+      endif
+   else
+      physfs=pkgconfig_physfs
+   endif
+
    naev_deps += [
       dependency('freetype2', required: true),
       libxml2,
-      dependency('physfs', fallback: ['physfs', 'physfs_dep'], required: true),
+      physfs,
       sdl,
       sdl_image,
       declare_dependency(
          dependencies: dependency('libpng', required: true),
          compile_args: '-DNOLOGPRINTFCONSOLE',
          link_args: '-DNOLOGPRINTFCONSOLE'),
-      dependency('libwebp', required: true),
+      dependency('libwebp', required: false),  # FIXME: required at runtime, but unavailable in the naev-steamruntime build image.
    ]
 
    # Lua
@@ -109,9 +119,10 @@ if buildExec.disabled() == false
    naev_deps += lua
 
    # Linear Algebra
+   message('IMPORTANT NOTE ABOUT SuiteSparse: Naev can provide it, but only if you "meson configure --force-fallback-for=SuiteSparse". Otherwise, you must have the following libraries installed: amd, colamd, cholmod, and either csparse or cxsparse.')
 
    use_system_glpk = ('glpk' not in get_option('force_fallback_for'))
-   use_system_csparse = ('SuiteSparse' not in get_option('force_fallback_for'))
+   use_system_suitesparse = ('SuiteSparse' not in get_option('force_fallback_for'))
 
    if use_system_glpk
       system_glpk = cc.find_library('glpk', required: false, has_headers: ['glpk.h'])
@@ -119,22 +130,64 @@ if buildExec.disabled() == false
    endif
    naev_deps += use_system_glpk ? system_glpk : subproject('glpk').get_variable('glpk_dep')
 
-   if use_system_csparse
+   if use_system_suitesparse
       foreach csparse_name : ['csparse', 'cxsparse']
          system_csparse = cc.find_library(csparse_name, required: false, has_headers: ['suitesparse/cs.h'])
-         use_system_csparse = system_csparse.found()
+         use_system_suitesparse = system_csparse.found()
          if system_csparse.found()
             config_data.set10('HAVE_SUITESPARSE_CS_H', true)
             break
          endif
          system_csparse = cc.find_library(csparse_name, required: false, has_headers: ['cs.h'])
-         use_system_csparse = system_csparse.found()
+         use_system_suitesparse = system_csparse.found()
          if system_csparse.found()
             break
          endif
       endforeach
+      if system_csparse.found()
+         naev_deps += system_csparse
+      else
+         error('Failed to find an installation of c[x]sparse. See above note about SuiteSparse.')
+      endif
+
+      system_cholmod = cc.find_library('cholmod', required: false, has_headers: ['suitesparse/cholmod.h'])
+      use_system_suitesparse = system_cholmod.found()
+      if system_cholmod.found()
+         config_data.set10('HAVE_SUITESPARSE_CHOLMOD_H', true)
+      else
+         system_cholmod = cc.find_library('cholmod', required: false, has_headers: ['cholmod.h'])
+         use_system_suitesparse = system_cholmod.found()
+      endif
+      if system_cholmod.found()
+         naev_deps += system_cholmod
+      else
+         error('Failed to find an installation of cholmod. See above note about SuiteSparse.')
+      endif
+
+
+   # TODO: These packages may require the same nonsense, in terms of checking for suitesparse/foo.h headers.
+      naev_deps += cc.find_library('amd', required: true)
+      naev_deps += cc.find_library('ccolamd', required: false)
+      naev_deps += cc.find_library('colamd', required: true)
+      naev_deps += cc.find_library('lapack', required: false)
+      naev_deps += cc.find_library('metis', required: false)
+      naev_deps += cc.find_library('suitesparseconfig', required: true)
+   else
+      naev_deps += subproject('SuiteSparse').get_variable('SuiteSparse_dep')
    endif
-   naev_deps += use_system_csparse ? system_csparse : subproject('SuiteSparse').get_variable('CSparse_dep')
+
+   if get_option('steamruntime')
+      blas = cc.find_library('openblas', required: true, static: true, dependencies: ['threads'])
+   elif get_option('blas') == 'Accelerate'
+      blas = dependency('Accelerate', required: true)
+   else
+      blas = cc.find_library(get_option('blas'), required: true)
+   endif
+
+   # It would be nice to detect the functions and just embed the prototypes. Problem is, we might not know the int width to use...
+   #config_data.set10('HAVE_BLAS_CBLAS_FUNC', cc.has_function('cblas_ddot', dependencies: blas))
+   #config_data.set10('HAVE_BLAS_FUNC_', cc.has_function('ddot_', dependencies: blas))
+   naev_deps += blas
 
    ### Soft deps (required: false)
 
@@ -165,10 +218,15 @@ if buildExec.disabled() == false
    config_data.set10('HAVE_DECL_SETENV', cc.has_header_symbol('stdlib.h', 'setenv'))
    config_data.set10('HAVE_DECL__PUTENV_S', cc.has_header_symbol('stdlib.h', '_putenv_s'))
    config_data.set10('HAVE_DECL_GETENV_S', cc.has_header_symbol('stdlib.h', 'getenv_s'))
+   config_data.set10('HAVE_CBLAS_H', cc.has_header('cblas.h'))
+   config_data.set10('HAVE_CBLAS_OPENBLAS_H', cc.has_header('cblas_openblas.h'))
+   config_data.set10('HAVE_CBLAS_HYPHEN_OPENBLAS_H', cc.has_header('cblas-openblas.h'))
    config_data.set10('HAVE_FEENABLEEXCEPT', cc.has_header_symbol('fenv.h', 'feenableexcept'))
    config_data.set10('HAVE_ALLOCA_H', cc.has_header('alloca.h'))
+   config_data.set10('HAVE_F77BLAS_H', cc.has_header('f77blas.h'))
    config_data.set10('HAVE_FENV_H', cc.has_header('fenv.h'))
    config_data.set10('HAVE_MALLOC_H', cc.has_header('malloc.h'))
+   config_data.set10('HAVE_OPENBLAS_CBLAS_H', cc.has_header('openblas/cblas.h'))
    config_data.set10('HAVE_STRCASESTR', cc.has_function('strcasestr'))
    # strndup() detectin must work around this bug: https://github.com/mesonbuild/meson/issues/3672
    config_data.set10('HAVE_STRNDUP', cc.has_header_symbol('string.h', 'strndup') and cc.has_function('strndup'))
@@ -213,7 +271,7 @@ if buildExec.disabled() == false
       add_languages('objc', native: false)
       configure_file(input: 'extras/macos/Info.plist.in', output: 'Info.plist', configuration: config_data,
          install: true, install_dir: 'Contents')
-      install_data('extras/macos/naev.icns', install_dir: ndata_path)
+      install_data('extras/logos/naev.icns', install_dir: ndata_path)
       naev_source += mac_source
       naev_deps += dependency('Foundation', required: true )
    endif

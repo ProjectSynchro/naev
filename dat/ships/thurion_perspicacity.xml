@@ -5,10 +5,15 @@
  <rarity>3</rarity>
  <GUI>brushed</GUI>
  <sound>engine</sound>
- <class>Scout</class>
+ <class>Interceptor</class>
  <price>350000</price>
- <time_mod>1</time_mod>
+ <time_mod>0.9</time_mod>
  <trail_generator x="-8" y="0" h="0" />
+ <trail_generator x="-5" y="0" h="0">nebula</trail_generator>
+ <trail_generator x="-5" y="-8" h="3">nebula</trail_generator>
+ <trail_generator x="-5" y="0" h="15">nebula</trail_generator>
+ <trail_generator x="-5" y="8" h="3">nebula</trail_generator>
+ <trail_generator x="-5" y="0" h="-15">nebula</trail_generator>
  <fabricator>Thurion shipyards</fabricator>
  <license>Light Combat Vessel License</license>
  <description>The Thurion Perspicacity is a fast, light fighter typically used for scouting or attacking in swarms.</description>
@@ -38,7 +43,6 @@
  <stats>
   <cpu_mod>10</cpu_mod>
   <ew_hide>30</ew_hide>
-  <nebu_absorb_shield>15</nebu_absorb_shield>
-  <nebu_absorb_armour>15</nebu_absorb_armour>
+  <nebu_absorb>15</nebu_absorb>
  </stats>
 </ship>

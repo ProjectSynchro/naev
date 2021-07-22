@@ -17,11 +17,11 @@
 </mission>
 --]]
 --[[
-   
+
    Mission: Advanced Nebula Research
-   
+
    Description: This time the postdoc asks the player for help. Reference data of further nebula are needed to understand the Sol nebula. The player has to escort a refitted transport ship through Pirate and Dvaered space.
-   
+
    Difficulty: Medium
 
 ]]--
@@ -86,8 +86,8 @@ function create()
     homeworld = "Bastion Station"
     ambush = false
     stage = 0
-    credits = 800000  -- 800K
-    
+    credits = 800e3
+
     -- Spaceport bar stuff
     misn.setNPC(_("A scientist"), "zalek/unique/mensing.webp", bar_desc)
 end
@@ -96,7 +96,7 @@ function accept()
     if not tk.yesno(title[1], string.format(text[1], player:name())) then
         misn.finish()
     end
-    
+
     stage = 1
     exited = false
     firstTakeOff = true
@@ -116,20 +116,20 @@ function accept()
     t_planet[6] = t_planet[1]
     t_planet[7] = planet.get("Vilati Vilata")
     t_planet[8] = planet.get(homeworld)
-    
+
     tk.msg(title[1], string.format(text[2], t_sys[2]:name(), t_sys[3]:name(), t_sys[4]:name(), _(station), _(homeworld)))
-    
+
     -- Set up mission information
     destsys = t_sys[1]
     misn.setTitle(mtitle)
     misn.setReward(string.format(misn_reward, creditstring(credits)))
     misn.setDesc(string.format(mdesc, _(station), t_sys[5]:name()))
     nextsys = getNextSystem(system.cur(), destsys) -- This variable holds the system the player is supposed to jump to NEXT.
-    
+
     misn.accept()
     misn_marker = misn.markerAdd(nextsys, "low")
     updateGoalDisplay()
-    
+
     hook.takeoff("takeoff")
     hook.jumpin("jumpin")
     hook.jumpout("jumpout")
@@ -173,7 +173,7 @@ function jumpin()
         if not ambush and system.cur():faction() == faction.get("Dvaered") and system.cur():jumpDist(t_sys[5]) < 5 then
             hook.timer(2000, "startAmbush")
         elseif system.cur()==system.get("Daan") or system.cur()==system.get("Provectus Nova") then
-            ambush = pilot.addFleet("Trader Ambush 2", vec2.new(0,0), "baddie_norun")
+            ambush = pilot.addFleet("Trader Ambush 2", vec2.new(0,0), {ai="baddie_norun"})
             for i, j in ipairs(ambush) do
                 j:setHostile()
                 j:control(true)
@@ -268,7 +268,7 @@ function transporterAttacked(p, attacker)
     p:setNoLand(true)
     p:attack(attacker)
     p:control(false)
-    
+
     if not shuttingup then
         shuttingup = true
         p:comm(player.pilot(), transporterdistress)
@@ -282,7 +282,7 @@ end
 
 function timer_transporterSafe()
     hook.timer(2000, "timer_transporterSafe")
-    
+
     if unsafe then
         unsafe = false
         continueToDest(transporter)
@@ -307,7 +307,7 @@ function spawnTransporter()
 end
 
 function startAmbush()
-    ships = pilot.addFleet("Dvaered Small Patrol", vec2.new(-1000,0), "dvaered_norun")
+    ships = pilot.addFleet("Dvaered Small Patrol", vec2.new(-1000,0), {ai="dvaered_norun"})
     for i, j in ipairs(ships) do
         j:control(true)
         j:moveto(vec2.new(-8000,0))

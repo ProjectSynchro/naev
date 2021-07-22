@@ -1,5 +1,4 @@
-require("ai/tpl/generic")
-require("ai/personality/patrol")
+require 'ai.core.core'
 require "numstring"
 
 -- Settings
@@ -14,20 +13,20 @@ function create ()
    ai.setcredits( rnd.rnd(ai.pilot():ship():price()/300, ai.pilot():ship():price()/70) )
 
    -- Lines to annoy the player.
-   r = rnd.rnd(0,20)
+   local r = rnd.rnd(0,20)
    if r == 0 then
       ai.pilot():broadcast(_("The Proteron are watching you."))
    end
 
    -- Get refuel chance
-   p = player.pilot()
+   local p = player.pilot()
    if p:exists() then
-      standing = ai.getstanding( p ) or -1
+      local standing = ai.getstanding( p ) or -1
       mem.refuel = rnd.rnd( 2000, 4000 )
-      if standing < 20 then
+      if standing < 0 then
          mem.refuel_no = _("\"My fuel isn't for sale.\"")
-      elseif standing < 70 then
-         if rnd.rnd() > 0.2 then
+      elseif standing < 50 then
+         if rnd.rnd() > 0.8 then
             mem.refuel_no = _("\"Sorry, my fuel isn't for sale.\"")
          end
       else
@@ -43,7 +42,7 @@ function create ()
       mem.bribe_prompt = string.format(_("\"The Proteron can always use some income. %s and you were never here.\""), creditstring(mem.bribe) )
       mem.bribe_paid = _("\"Get lost before I have to dispose of you.\"")
    else
-     bribe_no = {
+     local bribe_no = {
             _("\"You won't buy your way out of this one.\""),
             _("\"We like to make examples out of scum like you.\""),
             _("\"You've made a huge mistake.\""),
@@ -52,7 +51,7 @@ function create ()
             _("\"All the money in the world won't save you now!\"")
      }
      mem.bribe_no = bribe_no[ rnd.rnd(1,#bribe_no) ]
-     
+
    end
 
    mem.loiter = 3 -- This is the amount of waypoints the pilot will pass through before leaving the system
@@ -70,6 +69,7 @@ function taunt ( target, offense )
    end
 
    -- some taunts
+   local taunts
    if offense then
       taunts = {
             _("Animals like you don't deserve to live!"),

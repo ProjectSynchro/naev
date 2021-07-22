@@ -1,5 +1,4 @@
-require("ai/tpl/generic")
-require("ai/personality/patrol")
+require 'ai.core.core'
 require "numstring"
 
 -- Settings
@@ -14,14 +13,14 @@ function create ()
    ai.setcredits( rnd.rnd(ai.pilot():ship():price()/300, ai.pilot():ship():price()/70) )
 
    -- Get refuel chance
-   p = player.pilot()
+   local p = player.pilot()
    if p:exists() then
-      standing = ai.getstanding( p ) or -1
+      local standing = ai.getstanding( p ) or -1
       mem.refuel = rnd.rnd( 2000, 4000 )
-      if standing < 20 then
+      if standing < 0 then
          mem.refuel_no = _("\"The warriors of Sorom are not your personal refueller.\"")
-      elseif standing < 70 then
-         if rnd.rnd() > 0.2 then
+      elseif standing < 40 then
+         if rnd.rnd() > 0.8 then
             mem.refuel_no = _("\"The warriors of Sorom are not your personal refueller.\"")
          end
       else
@@ -35,7 +34,7 @@ function create ()
    if rnd.int() > 0.4 then
       mem.bribe_no = _("\"I shall especially enjoy your death.\"")
    else
-      bribe_no = {
+      local bribe_no = {
          _("\"Snivelling waste of carbon.\""),
          _("\"Money won't save you from being purged from the gene pool.\""),
          _("\"Culling you will be doing humanity a service.\""),
@@ -60,6 +59,7 @@ function taunt ( target, offense )
    end
 
    -- some taunts
+   local taunts
    if offense then
       taunts = {
          _("There is no room in this universe for scum like you!"),

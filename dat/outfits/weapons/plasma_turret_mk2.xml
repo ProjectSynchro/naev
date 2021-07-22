@@ -7,7 +7,7 @@
   <mass>30</mass>
   <price>31000</price>
   <description>The mark 2 plasma turret isn't especially impressive compared to other medium-size turrets, but it is sometimes favored by corvettes for its unusually low weight compared to its range and damage output.</description>
-  <gfx_store>plasma2.png</gfx_store>
+  <gfx_store>plasma2.webp</gfx_store>
   <cpu>-50</cpu>
  </general>
  <specific type="turret bolt">
@@ -27,7 +27,6 @@
    <type>impact</type>
    <penetrate>36</penetrate>
    <physical>32</physical>
-   <disable>2</disable>
   </damage>
  </specific>
 </outfit>

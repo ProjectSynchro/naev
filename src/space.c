@@ -147,10 +147,10 @@ static int getPresenceIndex( StarSystem *sys, int faction );
 static void system_scheduler( double dt, int init );
 static void asteroid_explode ( Asteroid *a, AsteroidAnchor *field, int give_reward );
 /* Render. */
-static void space_renderJumpPoint( JumpPoint *jp, int i );
-static void space_renderPlanet( Planet *p );
-static void space_renderAsteroid( Asteroid *a );
-static void space_renderDebris( Debris *d, double x, double y );
+static void space_renderJumpPoint( const JumpPoint *jp, int i );
+static void space_renderPlanet( const Planet *p );
+static void space_renderAsteroid( const Asteroid *a );
+static void space_renderDebris( const Debris *d, double x, double y );
 /*
  * Externed prototypes.
  */
@@ -1106,7 +1106,7 @@ JumpPoint* jump_get( const char* jumpname, const StarSystem* sys )
  *    @param sys System to look in.
  *    @return Jump point in sys to target or NULL if not found.
  */
-JumpPoint* jump_getTarget( StarSystem* target, const StarSystem* sys )
+JumpPoint* jump_getTarget( const StarSystem* target, const StarSystem* sys )
 {
    int i;
    JumpPoint *jp;
@@ -1123,7 +1123,7 @@ JumpPoint* jump_getTarget( StarSystem* target, const StarSystem* sys )
 /**
  * @brief Gets the jump point symbol.
  */
-const char *jump_getSymbol( JumpPoint *jp )
+const char *jump_getSymbol( const JumpPoint *jp )
 {
    if (jp_isFlag(jp, JP_HIDDEN))
       return "* ";
@@ -1306,7 +1306,7 @@ void space_update( const double dt )
    nebu_update( dt );
    if (cur_system->nebu_volatility > 0.) {
       dmg.type          = dtype_get("nebula");
-      dmg.damage        = pow2(cur_system->nebu_volatility) / 500. * dt;
+      dmg.damage        = cur_system->nebu_volatility * dt;
       dmg.penetration   = 1.; /* Full penetration. */
       dmg.disable       = 0.;
 
@@ -1553,9 +1553,8 @@ void space_init( const char* sysname )
 
       nt = ntime_pretty(0, 2);
       player_message(_("#oEntering System %s on %s."), _(sysname), nt);
-      if (cur_system->nebu_volatility > 0.) {
-         player_message(_("#rWARNING - Volatile nebula detected in %s! Taking damage!"), _(sysname));
-      }
+      if (cur_system->nebu_volatility > 0.)
+         player_message(_("#rWARNING - Volatile nebula detected in %s! Taking %.1f MW damage!"), _(sysname), cur_system->nebu_volatility);
       free(nt);
 
       /* Handle background */
@@ -1840,7 +1839,7 @@ static int planets_load ( void )
 /**
  * @brief Gets the planet colour char.
  */
-char planet_getColourChar( Planet *p )
+char planet_getColourChar( const Planet *p )
 {
    if (!planet_hasService( p, PLANET_SERVICE_INHABITED ))
       return 'I';
@@ -1860,7 +1859,7 @@ char planet_getColourChar( Planet *p )
 /**
  * @brief Gets the planet symbol.
  */
-const char *planet_getSymbol( Planet *p )
+const char *planet_getSymbol( const Planet *p )
 {
    if (!planet_hasService( p, PLANET_SERVICE_INHABITED )) {
       if (planet_hasService( p, PLANET_SERVICE_LAND ))
@@ -1883,7 +1882,7 @@ const char *planet_getSymbol( Planet *p )
 /**
  * @brief Gets the planet colour.
  */
-const glColour* planet_getColour( Planet *p )
+const glColour* planet_getColour( const Planet *p )
 {
    if (!planet_hasService( p, PLANET_SERVICE_INHABITED ))
       return &cInert;
@@ -2148,6 +2147,8 @@ static int planet_parse( Planet *planet, const xmlNodePtr parent, Commodity **st
                      planet->services |= PLANET_SERVICE_SHIPYARD | PLANET_SERVICE_INHABITED;
                   else if (xml_isNode(ccur, "nomissionspawn"))
                      planet->flags |= PLANET_NOMISNSPAWN;
+                  else if (xml_isNode(ccur, "uninhabited"))
+                     planet->flags |= PLANET_UNINHABITED;
                   else if (xml_isNode(ccur, "blackmarket"))
                      planet->services |= PLANET_SERVICE_BLACKMARKET;
                   else
@@ -2185,6 +2186,10 @@ static int planet_parse( Planet *planet, const xmlNodePtr parent, Commodity **st
       DEBUG(_("Unknown node '%s' in planet '%s'"),node->name,planet->name);
    } while (xml_nextNode(node));
 
+   /* Allow forcing to be uninhabited. */
+   if (planet_isFlag(planet, PLANET_UNINHABITED))
+      planet->services &= ~PLANET_SERVICE_INHABITED;
+
 /*
  * verification
  */
@@ -2194,8 +2199,8 @@ static int planet_parse( Planet *planet, const xmlNodePtr parent, Commodity **st
       MELEMENT(planet->gfx_spaceName==NULL,"GFX space");
       MELEMENT( planet_hasService(planet,PLANET_SERVICE_LAND) &&
             planet->gfx_exterior==NULL,"GFX exterior");
-      /* MELEMENT( planet_hasService(planet,PLANET_SERVICE_INHABITED) &&
-            (planet->population==0), "population"); */
+      MELEMENT( planet_hasService(planet,PLANET_SERVICE_INHABITED) &&
+            (planet->population==0), "population");
       MELEMENT((flags&FLAG_XSET)==0,"x");
       MELEMENT((flags&FLAG_YSET)==0,"y");
       MELEMENT(planet->class==NULL,"class");
@@ -3439,7 +3444,7 @@ void planets_render (void)
 /**
  * @brief Renders a jump point.
  */
-static void space_renderJumpPoint( JumpPoint *jp, int i )
+static void space_renderJumpPoint( const JumpPoint *jp, int i )
 {
    const glColour *c;
 
@@ -3467,7 +3472,7 @@ static void space_renderJumpPoint( JumpPoint *jp, int i )
 /**
  * @brief Renders a planet.
  */
-static void space_renderPlanet( Planet *p )
+static void space_renderPlanet( const Planet *p )
 {
    gl_blitSprite( p->gfx_space, p->pos.x, p->pos.y, 0, 0, NULL );
 }
@@ -3476,7 +3481,7 @@ static void space_renderPlanet( Planet *p )
 /**
  * @brief Renders an asteroid.
  */
-static void space_renderAsteroid( Asteroid *a )
+static void space_renderAsteroid( const Asteroid *a )
 {
    int i;
    double scale, nx, ny;
@@ -3516,7 +3521,7 @@ static void space_renderAsteroid( Asteroid *a )
 /**
  * @brief Renders a debris.
  */
-static void space_renderDebris( Debris *d, double x, double y )
+static void space_renderDebris( const Debris *d, double x, double y )
 {
    double scale;
    Vector2d *testVect;
@@ -4035,7 +4040,7 @@ sys_cleanup:
  *    @param faction The faction to get the presence for.
  *    @return The amount of presence the faction has in the system.
  */
-double system_getPresence( StarSystem *sys, int faction )
+double system_getPresence( const StarSystem *sys, int faction )
 {
    int i;
 
@@ -4108,7 +4113,7 @@ void space_reconstructPresences( void )
  *    @param p pointer to the position.
  *    @return -1 If false; index of the field otherwise.
  */
-int space_isInField ( Vector2d *p )
+int space_isInField( const Vector2d *p )
 {
    int i;
    AsteroidAnchor *a;
@@ -4294,7 +4299,37 @@ void system_rmCurrentPresence( StarSystem *sys, int faction, double amount )
 }
 
 
+/**
+ * @brief Cues a planet to be landed on. This is not done immediately, but when
+ * the engine thinks it is ok to do.
+ *
+ *    @param pnt Planet to land on.
+ */
 void space_queueLand( Planet *pnt )
 {
    space_landQueuePlanet = pnt;
+}
+
+
+/**
+ * @brief Gets the population in an approximated string. Note this function changes the string value each call, so be careful!
+ *
+ *    @param population Population to get string of.
+ *    @return String corresponding to the population.
+ */
+const char *space_populationStr( uint64_t population )
+{
+   static char pop[STRMAX_SHORT];
+   double p = (double)population;
+
+   if (p > 10e9)
+      snprintf( pop, sizeof(pop), _("%.0f billion"), p / 1e9 );
+   else if (p > 10e6)
+      snprintf( pop, sizeof(pop), _("%.0f million"), p / 1e6 );
+   else if (p > 10e3)
+      snprintf( pop, sizeof(pop), _("%.0f thousand"), p / 1e3 );
+   else
+      snprintf( pop, sizeof(pop), "%.0f", p );
+
+   return pop;
 }

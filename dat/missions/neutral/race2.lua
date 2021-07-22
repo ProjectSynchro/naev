@@ -3,7 +3,7 @@
 <mission name="Racing Skills 2">
  <avail>
   <priority>3</priority>
-  <cond>(player.pilot():ship():class() == "Yacht" or player.pilot():ship():class() == "Luxury Yacht") and planet.cur():class() ~= "1" and planet.cur():class() ~= "2" and planet.cur():class() ~= "3" and system.cur():presences()["Civilian"] ~= nil and system.cur():presences()["Civilian"] &gt; 0</cond>
+  <cond>player.pilot():ship():class() == "Yacht" and planet.cur():class() ~= "1" and planet.cur():class() ~= "2" and planet.cur():class() ~= "3" and system.cur():presences()["Independent"] ~= nil and system.cur():presences()["Independent"] &gt; 0</cond>
   <done>Racing Skills 1</done>
   <chance>20</chance>
   <location>Bar</location>
@@ -22,14 +22,14 @@
 
 require "numstring"
 
-   
+
 text = {}
 title = {}
 ftitle = {}
 ftext = {}
 
 title[1] = _("Another race")
-text[1] = _([["Hey there, great to see you back! You want to have another race?"]])   
+text[1] = _([["Hey there, great to see you back! You want to have another race?"]])
 
 title[5] = _("Choose difficulty")
 text[5] = _([["There are two races you can participate in: an easy one, which is like the first race we had, or a hard one, with smaller checkpoints and no afterburners allowed. The easy one has a prize of %s, and the hard one has a prize of %s. Which one do you want to do?"]])
@@ -62,7 +62,7 @@ ftext[2] = _([["Because you left the race, you have been disqualified."]])
 ftitle[3] = _("You failed to win the race.")
 ftext[3] = _([[As you congratulate the winner on a great race, the laid back person comes up to you.
    "That was a lot of fun! If you ever have time, let's race again. Maybe you'll win next time!"]])
-   
+
 ftitle[4] = _("Illegal ship!")
 ftext[4] = _([["You have outfits on your ship which is not allowed in this race in hard mode. Mission failed."]])
 
@@ -93,7 +93,7 @@ landmsg = _("%s just landed at %s and finished the race")
 
 
 function create ()
-   
+
    this_planet, this_system = planet.cur()
    missys = {this_system}
    if not misn.claim(missys) then
@@ -130,7 +130,7 @@ function accept ()
 end
 
 function takeoff()
-   if player.pilot():ship():class() ~= "Yacht" and player.pilot():ship():class() ~= "Luxury Yacht" then
+   if player.pilot():ship():class() ~= "Yacht" then
       tk.msg(ftitle[1], ftext[1])
       misn.finish(false)
    end
@@ -143,7 +143,7 @@ function takeoff()
       end
    end
    planetvec = planet.pos(curplanet)
-   misn.osdActive(1) 
+   misn.osdActive(1)
    checkpoint = {}
    racers = {}
    pilot.toggleSpawn(false)
@@ -162,9 +162,9 @@ function takeoff()
    else
       shiptype = "Koala"
    end
-   checkpoint[1] = pilot.add(shiptype, "Trader", location1, nil, "stationary")
-   checkpoint[2] = pilot.add(shiptype, "Trader", location2, nil, "stationary")
-   checkpoint[3] = pilot.add(shiptype, "Trader", location3, nil, "stationary")
+   checkpoint[1] = pilot.add(shiptype, "Trader", location1, nil, {ai="stationary"})
+   checkpoint[2] = pilot.add(shiptype, "Trader", location2, nil, {ai="stationary"})
+   checkpoint[3] = pilot.add(shiptype, "Trader", location3, nil, {ai="stationary"})
    for i, j in ipairs(checkpoint) do
       j:rename(string.format(_("Checkpoint %s"), i))
       j:setHilight(true)
@@ -172,9 +172,9 @@ function takeoff()
       j:setActiveBoard(true)
       j:setVisible(true)
    end
-   racers[1] = pilot.add("Llama", "Civilian", curplanet)
-   racers[2] = pilot.add("Gawain", "Civilian", curplanet)
-   racers[3] = pilot.add("Llama", "Civilian", curplanet)
+   racers[1] = pilot.add("Llama", "Independent", curplanet)
+   racers[2] = pilot.add("Gawain", "Independent", curplanet)
+   racers[3] = pilot.add("Llama", "Independent", curplanet)
    if choice == 1 then
       racers[1]:addOutfit("Engine Reroute")
       racers[2]:addOutfit("Engine Reroute")
@@ -183,7 +183,7 @@ function takeoff()
       for i in pairs(racers) do
          racers[i]:rmOutfit("all")
          racers[i]:rmOutfit("cores")
-         
+
          racers[i]:addOutfit("Unicorp PT-16 Core System")
          racers[i]:addOutfit("Unicorp D-2 Light Plating")
          local en_choices = {
@@ -205,7 +205,7 @@ function takeoff()
    countdown = 5 -- seconds
    omsg = player.omsgAdd(timermsg:format(countdown), 0, 50)
    counting = true
-   counterhook = hook.timer(1000, "counter")    
+   counterhook = hook.timer(1000, "counter")
    hook.board("board")
    hook.jumpin("jumpin")
    hook.land("land")
@@ -230,7 +230,7 @@ function counter()
       player.msg(marketing)
       else
       player.omsgChange(omsg, timermsg:format(countdown), 0)
-      counterhook = hook.timer(1000, "counter")    
+      counterhook = hook.timer(1000, "counter")
    end
 end
 
@@ -294,7 +294,7 @@ function board(ship)
          break
       end
    end
-   player.unboard()       
+   player.unboard()
 end
 
 function jumpin()

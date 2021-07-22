@@ -416,6 +416,10 @@ int pilot_rmOutfitRaw( Pilot* pilot, PilotOutfitSlot *s )
 {
    int ret;
 
+   /* Force turn off if necessary. */
+   if (s->state==PILOT_OUTFIT_ON)
+      pilot_outfitOff( pilot, s );
+
    /* Decrement counters if necessary. */
    if (s->outfit != NULL) {
       if (outfit_isTurret(s->outfit))
@@ -784,7 +788,7 @@ int pilot_rmAmmo( Pilot* pilot, PilotOutfitSlot *s, int quantity )
  *    @param pilot Pilot to count the ammo on
  *    @@return The integer count of ammo units on pilot
  */
-int pilot_countAmmo( Pilot* pilot )
+int pilot_countAmmo( const Pilot* pilot )
 {
    int nammo = 0, i;
    PilotOutfitSlot* po;
@@ -810,7 +814,7 @@ int pilot_countAmmo( Pilot* pilot )
  *    @param pilot Pilot to get the count from
  *    @@return An integer, the max amount of ammo that can be held.
  */
-int pilot_maxAmmo( Pilot* pilot )
+int pilot_maxAmmo( const Pilot* pilot )
 {
   int max = 0, i;
   PilotOutfitSlot* po;
@@ -837,7 +841,9 @@ int pilot_maxAmmo( Pilot* pilot )
 int pilot_maxAmmoO( const Pilot* p, const Outfit *o )
 {
    int max;
-   if (outfit_isLauncher(o))
+   if (o==NULL)
+      return 0;
+   else if (outfit_isLauncher(o))
       max = round( (double)o->u.lau.amount * p->stats.ammo_capacity );
    else if (outfit_isFighterBay(o))
       max = round( (double)o->u.bay.amount * p->stats.fbay_capacity );
@@ -1082,11 +1088,11 @@ void pilot_calcStats( Pilot* pilot )
    /*
     * Flat increases.
     */
-   pilot->armour_regen -= s->armour_damage;
-   pilot->shield_regen -= s->shield_usage;
-   pilot->energy_regen -= s->energy_usage;
+   pilot->armour_regen -= s->armour_regen_malus;
+   pilot->shield_regen -= s->shield_regen_malus;
+   pilot->energy_regen -= s->energy_regen_malus;
    pilot->energy_loss  += s->energy_loss;
-   pilot->dmg_absorb    = CLAMP( 0., 1., pilot->dmg_absorb + s->absorb/100. );
+   pilot->dmg_absorb    = CLAMP( 0., 1., pilot->dmg_absorb + s->absorb );
 
    /* Give the pilot his health proportion back */
    pilot->armour = ac * pilot->armour_max;

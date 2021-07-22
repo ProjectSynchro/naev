@@ -75,76 +75,83 @@ ships = {
       bomber    = { "Dvaered Ancestor" },
       corvette  = { "Dvaered Phalanx" },
       destroyer = { "Dvaered Vigilance" },
-      cruiser   = { "Dvaered Goddard" },
+      battleship= { "Dvaered Goddard" },
    },
    Empire = {
-      fighter   = { "Empire Shark", "Empire Lancelot" },
+      interceptor={ "Empire Shark" },
+      fighter   = { "Empire Lancelot" },
       corvette  = { "Empire Admonisher" },
       destroyer = { "Empire Pacifier" },
       cruiser   = { "Empire Hawking" },
       carrier   = { "Empire Peacemaker" },
    },
    Frontier = {
-      fighter   = { "Lancelot", "Vendetta", "Hyena" },
+      interceptor={ "Hyena" },
+      fighter   = { "Lancelot", "Vendetta" },
       bomber    = { "Ancestor" },
       corvette  = { "Phalanx" },
       destroyer = { "Pacifier" },
    },
    Goddard = {
       fighter   = { "Lancelot" },
-      cruiser   = { "Goddard" },
+      battleship= { "Goddard" },
    },
    Independent = {
-      fighter   = { "Lancelot", "Vendetta", "Hyena", "Shark" },
+      interceptor={ "Hyena", "Shark" },
+      fighter   = { "Lancelot", "Vendetta" },
       bomber    = { "Ancestor" },
       corvette  = { "Phalanx", "Admonisher" },
       destroyer = { "Vigilance", "Pacifier" },
       cruiser   = { "Kestrel", "Hawking" },
    },
    Sirius = {
-      fighter   = { "Sirius Fidelity" },
+      interceptor={ "Sirius Fidelity" },
       bomber    = { "Sirius Shaman" },
       corvette  = { "Sirius Preacher" },
-      cruiser   = { "Sirius Dogma" },
+      battleship= { "Sirius Dogma" },
       carrier   = { "Sirius Divinity" },
    },
    Soromid = {
-      fighter   = { "Soromid Brigand", "Soromid Reaver" },
+      interceptor={ "Soromid Brigand" },
+      fighter   = { "Soromid Reaver" },
       bomber    = { "Soromid Marauder" },
       corvette  = { "Soromid Odium" },
       destroyer = { "Soromid Nyx" },
-      cruiser   = { "Soromid Ira", "Soromid Vox" },
+      cruiser   = { "Soromid Ira" },
+      battleship= { "Soromid Vox" },
       carrier   = { "Soromid Arx" },
    },
    ["Za'lek"] = {
       corvette  = { "Za'lek Sting" },
       destroyer = { "Za'lek Demon" },
       cruiser   = { "Za'lek Mephisto" },
-      carrier   = { "Za'lek Diablo", "Za'lek Hephaestus" },
+      carrier   = { "Za'lek Diablo" },
    },
 }
 
 classes = {}
 
 for k,v in pairs(ships) do
-   classes[k] = {}
+classes[k] = {}
 
-   for k2,v2 in pairs(v) do
-      classes[k][#classes[k]+1] = k2
-   end
+for k2,v2 in pairs(v) do
+classes[k][#classes[k]+1] = k2
+end
 end
 
 function price(class)
    local modifier = 1
-   if class == "fighter" then
-      modifier = 0.5
+   if class == "interceptor" then
+   modifier = 0.3
+   elseif class == "fighter" then
+   modifier = 0.5
    elseif class == "bomber" then
-      modifier = 0.75
+   modifier = 0.75
    elseif class == "destroyer" then
-      modifier = 1.5
+   modifier = 1.5
    elseif class == "cruiser" then
       modifier = 2
-   elseif class == "carrier" then
+   elseif class == "carrier" or class == "battleship" then
       modifier = 3
    end
 
@@ -190,7 +197,7 @@ function random_planet()
             if f and ships[f:nameRaw()] and v:services().shipyard then
                planets[#planets + 1] = v
             end
-         end 
+         end
          return false
       end, nil, true )
 
@@ -211,7 +218,7 @@ function improve_standing(class, faction_name)
       standing = 2
    elseif class =="cruiser" then
       standing = 3
-   elseif class == "carrier" then
+   elseif class == "carrier" or class == "battleship" then
       standing = 4
    end
 
@@ -244,7 +251,7 @@ function damage_standing(class, faction_name)
       faction.modPlayerSingle(faction_name, -4 * modifier)
    elseif class == "cruiser" then
       faction.modPlayerSingle(faction_name, -8 * modifier)
-   elseif class == "carrier" then
+   elseif class == "carrier" or class == "battleship" then
       -- Hey, who do you think you are to steal a carrier?
       faction.modPlayerSingle(faction_name, -16 * modifier)
    end
@@ -349,7 +356,7 @@ function land()
       -- Hey, stealing a ship isn’t anything! (if you survive, that is)
       faction.modPlayerSingle("Pirate", rnd.rnd(3,5))
 
-      -- Let’s keep a counter. Just in case we want to know how many you 
+      -- Let’s keep a counter. Just in case we want to know how many you
       -- stole in the future.
       local stolen_ships = var.peek("pir_stolen_ships") or 0
       var.push("pir_stolen_ships", stolen_ships + 1)
@@ -365,7 +372,7 @@ function land()
       damage_standing(theship.class, theship.faction)
 
       -- This is a success. The player stole his new ship, and everyone is
-      -- happy with it. Getting out of the system alive is the player’s 
+      -- happy with it. Getting out of the system alive is the player’s
       -- responsibility, now.
       misn.finish(true)
    end

@@ -204,7 +204,7 @@ static int playerL_shipname( lua_State *L )
  * @usage player.pay( 500 ) -- Gives player 500 credits
  *
  *    @luatparam number amount Amount of money to pay the player in credits.
- *    @luatparam[opt] boolean|string nohooks Set to true to not trigger pay hooks, or a strig value to pass that to the pay hook instead.
+ *    @luatparam[opt] boolean|string nohooks Set to true to not trigger pay hooks, or a string value to pass that to the pay hook instead.
  * @luafunc pay
  */
 static int playerL_pay( lua_State *L )
@@ -760,6 +760,8 @@ static int playerL_land( lua_State *L )
       pilot_rmFlag( player.p, PILOT_HYP_BEGIN );
       pilot_rmFlag( player.p, PILOT_HYP_BRAKE );
       pilot_rmFlag( player.p, PILOT_HYP_PREP );
+      player_accelOver();
+      player_autonavEnd();
 
       space_gfxUnload( cur_system );
 
@@ -1397,6 +1399,9 @@ static int playerL_teleport( lua_State *L )
    pilot_rmFlag( player.p, PILOT_HYP_BEGIN );
    pilot_rmFlag( player.p, PILOT_HYP_BRAKE );
    pilot_rmFlag( player.p, PILOT_HYP_PREP );
+   /* Don't follow anything. */
+   player_accelOver();
+   player_autonavEnd();
 
    /* Free graphics. */
    space_gfxUnload( cur_system );

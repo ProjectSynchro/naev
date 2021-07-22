@@ -73,6 +73,7 @@
 #include "player.h"
 #include "render.h"
 #include "rng.h"
+#include "safelanes.h"
 #include "semver.h"
 #include "ship.h"
 #include "slots.h"
@@ -164,6 +165,11 @@ int naev_isQuit (void)
 int main( int argc, char** argv )
 {
    char conf_file_path[PATH_MAX], **search_path, **p;
+
+#ifdef DEBUGGING
+   /* Set Debugging flags. */
+   memset( debug_flags , 0, DEBUG_FLAGS_MAX );
+#endif /* DEBUGGING */
 
    env_detect( argc, argv );
 
@@ -624,7 +630,7 @@ static void loadscreen_unload (void)
 /**
  * @brief Loads all the data, makes main() simpler.
  */
-#define LOADING_STAGES     13. /**< Amount of loading stages. */
+#define LOADING_STAGES     17. /**< Amount of loading stages. */
 void load_all (void)
 {
    /* We can do fast stuff here. */
@@ -633,32 +639,50 @@ void load_all (void)
    /* order is very important as they're interdependent */
    loadscreen_render( 1./LOADING_STAGES, _("Loading Commodities...") );
    commodity_load(); /* dep for space */
-   loadscreen_render( 2./LOADING_STAGES, _("Loading Factions...") );
-   factions_load(); /* dep for fleet, space, missions, AI */
-   loadscreen_render( 3./LOADING_STAGES, _("Loading AI...") );
-   ai_load(); /* dep for fleets */
-   loadscreen_render( 4./LOADING_STAGES, _("Loading Missions...") );
-   missions_load(); /* no dep */
-   loadscreen_render( 5./LOADING_STAGES, _("Loading Events...") );
-   events_load(); /* no dep */
-   loadscreen_render( 6./LOADING_STAGES, _("Loading Special Effects...") );
+
+   loadscreen_render( 2./LOADING_STAGES, _("Loading Special Effects...") );
    spfx_load(); /* no dep */
-   loadscreen_render( 6./LOADING_STAGES, _("Loading Damage Types...") );
-   dtype_load(); /* no dep */
-   loadscreen_render( 7./LOADING_STAGES, _("Loading Outfits...") );
-   outfit_load(); /* dep for ships */
-   loadscreen_render( 8./LOADING_STAGES, _("Loading Ships...") );
+
+   loadscreen_render( 3./LOADING_STAGES, _("Loading Damage Types...") );
+   dtype_load(); /* dep for outfits */
+
+   loadscreen_render( 4./LOADING_STAGES, _("Loading Outfits...") );
+   outfit_load(); /* dep for ships, factions */
+
+   loadscreen_render( 5./LOADING_STAGES, _("Loading Ships...") );
    ships_load(); /* dep for fleet */
-   loadscreen_render( 9./LOADING_STAGES, _("Loading Fleets...") );
+
+   loadscreen_render( 6./LOADING_STAGES, _("Loading Factions...") );
+   factions_load(); /* dep for fleet, space, missions, AI */
+
+   loadscreen_render( 7./LOADING_STAGES, _("Loading Events...") );
+   events_load(); /* no dep */
+
+   loadscreen_render( 8./LOADING_STAGES, _("Loading Missions...") );
+   missions_load(); /* no dep */
+
+   loadscreen_render( 9./LOADING_STAGES, _("Loading AI...") );
+   ai_load(); /* dep for fleets */
+
+   loadscreen_render( 10./LOADING_STAGES, _("Loading Fleets...") );
    fleet_load(); /* dep for space */
-   loadscreen_render( 10./LOADING_STAGES, _("Loading Techs...") );
+
+   loadscreen_render( 11./LOADING_STAGES, _("Loading Techs...") );
    tech_load(); /* dep for space */
-   loadscreen_render( 11./LOADING_STAGES, _("Loading the Universe...") );
+
+   loadscreen_render( 12./LOADING_STAGES, _("Loading the Universe...") );
    space_load();
-   loadscreen_render( 12./LOADING_STAGES, _("Loading the UniDiffs...") );
+
+   loadscreen_render( 13./LOADING_STAGES, _("Loading the UniDiffs...") );
    diff_loadAvailable();
-   loadscreen_render( 13./LOADING_STAGES, _("Populating Maps...") );
+
+   loadscreen_render( 14./LOADING_STAGES, _("Populating Maps...") );
    outfit_mapParse();
+
+   loadscreen_render( 15./LOADING_STAGES, _("Calculating Patrols...") );
+   safelanes_init();
+
+   loadscreen_render( 16./LOADING_STAGES, _("Initializing Details..") );
    background_init();
    map_load();
    map_system_load();
@@ -682,6 +706,7 @@ void unload_all (void)
    npc_clear(); /* In case exiting while landed. */
    background_free(); /* Destroy backgrounds. */
    load_free(); /* Clean up loading game stuff stuff. */
+   safelanes_destroy();
    diff_free();
    economy_destroy(); /* must be called before space_exit */
    space_exit(); /* cleans up the universe itself */
@@ -1022,14 +1047,14 @@ static void window_caption (void)
    SDL_RWops *rw;
 
    /* Load icon. */
-   rw = PHYSFSRWOPS_openRead( GFX_PATH"icon.png" );
+   rw = PHYSFSRWOPS_openRead( GFX_PATH"icon.webp" );
    if (rw == NULL) {
-      WARN( _("Icon (icon.png) not found!") );
+      WARN( _("Icon (icon.webp) not found!") );
       return;
    }
    naev_icon   = IMG_Load_RW( rw, 1 );
    if (naev_icon == NULL) {
-      WARN( _("Unable to load icon.png!") );
+      WARN( _("Unable to load icon.webp!") );
       return;
    }
 

@@ -193,7 +193,7 @@ double pilot_ewAsteroid( Pilot *p )
  */
 void pilot_updateSensorRange (void)
 {
-   ew_interference = 800. / (cur_system->interference + 800.);
+   ew_interference = 1. + cur_system->interference/100.;
 }
 
 
@@ -261,8 +261,10 @@ int pilot_inRangePilot( const Pilot *p, const Pilot *target, double *dist2 )
 
    /* Stealth detection. */
    if (pilot_isFlag( target, PILOT_STEALTH )) {
-      if (d < pow2( MAX( 0., p->stats.ew_detect * target->ew_stealth )))
+      return 0;
+      /*if (d < pow2( MAX( 0., p->stats.ew_detect * target->ew_stealth )))
          return 1;
+      */
    }
    /* No stealth so normal detection. */
    else {

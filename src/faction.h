@@ -13,6 +13,7 @@
 
 
 #define FACTION_PLAYER  0  /**< Hardcoded player faction identifier. */
+#define FACTION_LOGO_SM 64 /**< Size of "small" logo. */
 
 
 /* get stuff */
@@ -29,14 +30,14 @@ const char* faction_name( int f );
 const char* faction_shortname( int f );
 const char* faction_longname( int f );
 const char* faction_default_ai( int f );
+double faction_lane_length_per_presence( int f );
 void faction_addEnemy( int f, int o );
 void faction_rmEnemy( int f, int o );
 void faction_addAlly( int f, int o );
 void faction_rmAlly( int f, int o );
 nlua_env faction_getScheduler( int f );
 nlua_env faction_getEquipper( int f );
-glTexture* faction_logoSmall( int f );
-glTexture* faction_logoTiny( int f );
+glTexture* faction_logo( int f );
 const glColour* faction_colour( int f );
 int* faction_getEnemies( int f );
 int* faction_getAllies( int f );

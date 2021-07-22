@@ -34,7 +34,7 @@ function create ()
    landhook = hook.land("leave")
 end
 
-function begin ()  
+function begin ()
    thissystem = system.cur()
 
    -- thissystem and source_system must be adjacent (for those who use player.teleport)
@@ -47,7 +47,7 @@ function begin ()
       evt.finish(false)
    end
 
-   --choose 1 particular planet 
+   --choose 1 particular planet
    plan = thissystem:planets()
    cand = {}
    k = 1
@@ -79,9 +79,9 @@ end
 
 --Spawns a merchant ship that explains what happens
 function merchant ()
-   merShips = {"Trader Koala", "Trader Mule", "Trader Rhino", "Trader Llama"}
+   merShips = {"Koala", "Mule", "Rhino", "Llama"}
    mship = merShips[rnd.rnd(1,#merShips)]
-   trader = pilot.addFleet(mship, source_system)[1]
+   trader = pilot.add( mship, "Trader", source_system, _("Trader %s"):format( _(mship) ) )
    hook.timer(2000, "hailme")
 end
 
@@ -143,7 +143,7 @@ function attack ()
       j:setFaction("Invaders")
       j:memory().formation = form
       j:memory().aggressive = false
-      
+
       if j ~= goda then
          j:setLeader(goda)
       end

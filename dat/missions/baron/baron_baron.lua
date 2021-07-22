@@ -93,7 +93,7 @@ misn_title = _("Baron")
 misn_reward = _("A tidy sum of money")
 misn_desc = _("You've been hired as a courier for one Baron Sauterfeldt. Your job is to transport a holopainting from a Dvaered world to the Baron's ship.")
 
-credits = 40000 -- 40K
+credits = 40e3
 
 -- NPC stuff
 npc_desc = _("These must be the 'agents' hired by this Baron Sauterfeldt. They look shifty. Why must people involved in underhanded business always look shifty?")
@@ -166,8 +166,8 @@ end
 
 function jumpin()
    if talked and system.cur() == system.get(sysname2) then
-      pinnacle = pilot.add( "Proteron Kahan", "Proteron", planet.get("Ulios"):pos() + vec2.new(-400,-400), nil, "trader" )
-      pinnacle:setFaction("Civilian")
+      pinnacle = pilot.add( "Proteron Kahan", "Proteron", planet.get("Ulios"):pos() + vec2.new(-400,-400), nil, {ai="trader"} )
+      pinnacle:setFaction("Independent")
       pinnacle:rename(_("Pinnacle"))
       pinnacle:setInvincible(true)
       pinnacle:control()
@@ -236,8 +236,8 @@ end
 
 function takeoff()
    if talked and system.cur() == system.get(sysname1) then
-      vendetta1 = pilot.add( "Dvaered Vendetta", "Dvaered", vec2.new(500,0), nil, "dvaered_norun" )
-      vendetta2 = pilot.add( "Dvaered Vendetta", "Dvaered", vec2.new(-500,0), nil, "dvaered_norun" )
+      vendetta1 = pilot.add( "Dvaered Vendetta", "Dvaered", vec2.new(500,0), nil, {ai="dvaered_norun"} )
+      vendetta2 = pilot.add( "Dvaered Vendetta", "Dvaered", vec2.new(-500,0), nil, {ai="dvaered_norun"} )
       vendetta1:rename(_("Dvaered Police Vendetta"))
       vendetta2:rename(_("Dvaered Police Vendetta"))
       vendetta1:control()

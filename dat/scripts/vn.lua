@@ -117,6 +117,9 @@ local function _draw_character( c )
    if c.image == nil then return end
    local w, h = c.image:getDimensions()
    local isportrait = (w>=h)
+   if c.params.isportrait ~= nil then
+      isportrait = c.params.isportrait
+   end
    local lw, lh = love.graphics.getDimensions()
    local mw, mh = vn.textbox_w, vn.textbox_y
    local scale, x, y
@@ -493,11 +496,18 @@ function vn.StateSay.new( who, what )
    return s
 end
 function vn.StateSay:_init()
+   -- Get the main text
    if type(self.what)=="function" then
       self._textbuf = self.what()
    else
       self._textbuf = self.what
    end
+   -- Parse for line breaks and insert newlines
+   local font = vn.textbox_font
+   local bw = 20
+   local maxw, wrappedtext = font:getWrap( self._textbuf, vn.textbox_w-2*bw )
+   self._textbuf = table.concat( wrappedtext, "\n" )
+   -- Set up initial buffer
    self._timer = vn.speed
    self._len = utf8.len( self._textbuf )
    self._pos = utf8.next( self._textbuf )

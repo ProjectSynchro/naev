@@ -58,6 +58,16 @@ static Outfit* outfit_stack = NULL; /**< Stack of outfits. */
 
 
 /*
+ * Helper stuff for setting up short descriptions for outfits.
+ */
+#define SDESC_ADD( l, temp, txt, args... ) \
+(l) += scnprintf( &(temp)->desc_short[l], OUTFIT_SHORTDESC_MAX-(l), (txt), ## args )
+#define SDESC_COND( l, temp, txt, val, args... ) \
+if (fabs(val) > 1e-5) \
+   (l) += scnprintf( &(temp)->desc_short[l], OUTFIT_SHORTDESC_MAX-(l), (txt), (val), ## args )
+
+
+/*
  * Prototypes
  */
 /* misc */
@@ -80,7 +90,7 @@ static void outfit_parseSMap( Outfit *temp, const xmlNodePtr parent );
 static void outfit_parseSLocalMap( Outfit *temp, const xmlNodePtr parent );
 static void outfit_parseSGUI( Outfit *temp, const xmlNodePtr parent );
 static void outfit_parseSLicense( Outfit *temp, const xmlNodePtr parent );
-static int outfit_loadPLG( Outfit *temp, char *buf, unsigned int bolt );
+static int outfit_loadPLG( Outfit *temp, const char *buf, unsigned int bolt );
 
 
 /**
@@ -785,6 +795,7 @@ double outfit_trackmin( const Outfit* o )
 {
    if (outfit_isBolt(o)) return o->u.blt.trackmin;
    else if (outfit_isLauncher(o)) return o->u.lau.trackmin;
+   else if (outfit_isBeam(o)) return 0.;
    return -1.;
 }
 /**
@@ -796,6 +807,7 @@ double outfit_trackmax( const Outfit* o )
 {
    if (outfit_isBolt(o)) return o->u.blt.trackmax;
    else if (outfit_isLauncher(o)) return o->u.lau.trackmax;
+   else if (outfit_isBeam(o)) return 1.;
    return -1.;
 }
 /**
@@ -900,7 +912,7 @@ const char* outfit_getTypeBroad( const Outfit* o )
    else if (outfit_isBeam(o))       return gettext_noop("Beam Weapon");
    else if (outfit_isLauncher(o))   return gettext_noop("Launcher");
    else if (outfit_isAmmo(o))       return gettext_noop("Ammo");
-   else if (outfit_isTurret(o))     return gettext_noop("Turret");
+   //else if (outfit_isTurret(o))     return gettext_noop("Turret");
    else if (outfit_isMod(o))        return gettext_noop("Modification");
    else if (outfit_isAfterburner(o)) return gettext_noop("Afterburner");
    else if (outfit_isFighterBay(o)) return gettext_noop("Fighter Bay");
@@ -944,8 +956,7 @@ const char* outfit_getAmmoAI( const Outfit *o )
  */
 int outfit_fitsSlot( const Outfit* o, const OutfitSlot* s )
 {
-   const OutfitSlot *os;
-   os = &o->slot;
+   const OutfitSlot *os = &o->slot;
 
    /* Outfit must have valid slot type. */
    if ((os->type == OUTFIT_SLOT_NULL) ||
@@ -954,6 +965,10 @@ int outfit_fitsSlot( const Outfit* o, const OutfitSlot* s )
 
    /* Outfit type must match outfit slot. */
    if (os->type != s->type)
+      return 0;
+
+   /* It doesn't fit. */
+   if (os->size > s->size)
       return 0;
 
    /* Must match slot property. */
@@ -967,12 +982,10 @@ int outfit_fitsSlot( const Outfit* o, const OutfitSlot* s )
          return 0;
 
    /* Must have valid slot size. */
+   /*
    if (os->size == OUTFIT_SLOT_SIZE_NA)
       return 0;
-
-   /* It doesn't fit. */
-   if (os->size > s->size)
-      return 0;
+   */
 
    /* It meets all criteria. */
    return 1;
@@ -1107,7 +1120,7 @@ static int outfit_parseDamage( Damage *dmg, xmlNodePtr node )
  *    @param buf Name of the file.
  *    @param bolt 1 if outfit is a Bolt, 0 if it is an Ammo
  */
-static int outfit_loadPLG( Outfit *temp, char *buf, unsigned int bolt )
+static int outfit_loadPLG( Outfit *temp, const char *buf, unsigned int bolt )
 {
    char *file;
    CollPoly *polygon;
@@ -1187,7 +1200,7 @@ static void outfit_parseSBolt( Outfit* temp, const xmlNodePtr parent )
 {
    ShipStatList *ll;
    xmlNodePtr node;
-   char *buf, stmin[NUM2STRLEN], stmax[NUM2STRLEN];
+   char *buf;
    double C, area;
    int l;
 
@@ -1316,40 +1329,24 @@ static void outfit_parseSBolt( Outfit* temp, const xmlNodePtr parent )
 
    /* Set short description. */
    temp->desc_short = malloc( OUTFIT_SHORTDESC_MAX );
-   l = scnprintf( temp->desc_short, OUTFIT_SHORTDESC_MAX,
-         _("%s [%s]\n"
-         "%.0f CPU\n"
-         "%.0f%% Penetration\n"
-         "%.2f DPS [%.0f Damage]\n"),
-         _(outfit_getType(temp)), _(dtype_damageTypeToStr(temp->u.blt.dmg.type)),
-         temp->cpu,
-         temp->u.blt.dmg.penetration*100.,
+   l = 0;
+   SDESC_ADD(  l, temp, _("%s [%s]"), _(outfit_getType(temp)),
+         _(dtype_damageTypeToStr(temp->u.blt.dmg.type)) );
+   SDESC_COND( l, temp, _("\n%.0f CPU"), temp->cpu );
+   SDESC_ADD(  l, temp, _("\n%.0f%% Penetration"), temp->u.blt.dmg.penetration*100. );
+   SDESC_COND( l, temp, _("\n%.2f DPS [%.0f Damage]"),
          1./temp->u.blt.delay * temp->u.blt.dmg.damage, temp->u.blt.dmg.damage );
-   if (temp->u.blt.dmg.disable > 0.) {
-      l += scnprintf( &temp->desc_short[l], OUTFIT_SHORTDESC_MAX-l,
-         _("%.2f Disable/s [%.0f Disable]\n"),
+   SDESC_COND( l, temp, _("\n%.2f Disable/s [%.0f Disable]"),
          1./temp->u.blt.delay * temp->u.blt.dmg.disable, temp->u.blt.dmg.disable );
-   }
-   num2str( stmin, temp->u.blt.range, 0 );
-   l += scnprintf( &temp->desc_short[l], OUTFIT_SHORTDESC_MAX-l,
-         _("%.1f Shots Per Second\n"
-         "%.1f EPS [%.0f Energy]\n"
-         "%s Range\n"
-         "%.1f second heat up"),
-         1./temp->u.blt.delay,
-         1./temp->u.blt.delay * temp->u.blt.energy, temp->u.blt.energy,
-         stmin, temp->u.blt.heatup);
-   if (!outfit_isTurret(temp)) {
-      l += scnprintf( &temp->desc_short[l], OUTFIT_SHORTDESC_MAX-l,
-         _("\n%.1f Degree Swivel"),
-         temp->u.blt.swivel*180./M_PI );
-   }
-   num2str( stmin, temp->u.blt.trackmin, 0 );
-   num2str( stmax, temp->u.blt.trackmax, 0 );
-   l += scnprintf( &temp->desc_short[l], OUTFIT_SHORTDESC_MAX-l,
-      _("\n%s Optimal Tracking\n"
-      "%s Minimal Tracking"),
-      stmax, stmin );
+   SDESC_ADD(  l, temp, _("\n%.1f Shots Per Second"), 1./temp->u.blt.delay );
+   SDESC_COND( l, temp, _("\n%.1f EPS [%.0f Energy]"),
+         1./temp->u.blt.delay * temp->u.blt.energy, temp->u.blt.energy );
+   SDESC_ADD(  l, temp, _("\n%s Range"), num2strU( temp->u.blt.range, 0 ) );
+   SDESC_COND( l, temp, _("\n%.1f second heat up"), temp->u.blt.heatup);
+   if (!outfit_isTurret(temp))
+      SDESC_ADD(  l, temp, _("\n%.1f Degree Swivel"), temp->u.blt.swivel*180./M_PI );
+   SDESC_ADD(  l, temp, _("\n%s Optimal Tracking"), num2strU( temp->u.blt.trackmax, 0 ) );
+   SDESC_ADD(  l, temp, _("\n%s Minimal Tracking"), num2strU( temp->u.blt.trackmin, 0 ) );
 
 #define MELEMENT(o,s) \
 if (o) WARN(_("Outfit '%s' missing/invalid '%s' element"), temp->name, s) /**< Define to help check for data errors. */
@@ -1402,6 +1399,7 @@ static void outfit_parseSBeam( Outfit* temp, const xmlNodePtr parent )
       xmlr_float(node,"delay",temp->u.bem.delay);
       xmlr_float(node,"warmup",temp->u.bem.warmup);
       xmlr_float(node,"heatup",temp->u.bem.heatup);
+      xmlr_float(node,"swivel",temp->u.bem.swivel);
 
       if (xml_isNode(node, "duration")) {
          xmlr_attr_float(node, "min", temp->u.bem.min_duration);
@@ -1463,12 +1461,13 @@ static void outfit_parseSBeam( Outfit* temp, const xmlNodePtr parent )
    } while (xml_nextNode(node));
 
    /* Post processing. */
-   temp->u.bem.turn     *= M_PI/180.; /* Convert to rad/s. */
+   temp->u.bem.swivel  *= M_PI/180.;
+   temp->u.bem.turn    *= M_PI/180.; /* Convert to rad/s. */
    C = pilot_heatCalcOutfitC(temp);
    area = pilot_heatCalcOutfitArea(temp);
    temp->u.bem.heat     = ((800.-CONST_SPACE_STAR_TEMP)*C +
             STEEL_HEAT_CONDUCTIVITY * ((800-CONST_SPACE_STAR_TEMP) * area)) /
-         temp->u.bem.heatup;
+         temp->u.bem.heatup * (temp->u.bem.delay+temp->u.bem.warmup+temp->u.bem.duration) / temp->u.bem.delay;
 
    /* Set default outfit size if necessary. */
    if (temp->slot.size == OUTFIT_SLOT_SIZE_NA)
@@ -1476,30 +1475,22 @@ static void outfit_parseSBeam( Outfit* temp, const xmlNodePtr parent )
 
    /* Set short description. */
    temp->desc_short = malloc( OUTFIT_SHORTDESC_MAX );
-   l = scnprintf( temp->desc_short, OUTFIT_SHORTDESC_MAX,
-         _("%s\n"
-         "%.0f CPU\n"
-         "%.0f%% Penetration\n"
-         "%.2f DPS [%s]\n"),
-         _(outfit_getType(temp)),
-         temp->cpu,
-         temp->u.bem.dmg.penetration*100.,
+   l = 0;
+   SDESC_ADD(  l, temp, "%s", _(outfit_getType(temp)) );
+   SDESC_COND( l, temp, _("\n%.0f CPU"), temp->cpu );
+   SDESC_ADD(  l, temp, _("\n%.0f%% Penetration"), temp->u.bem.dmg.penetration*100 );
+   SDESC_ADD(  l, temp, _("\n%.2f DPS [%s]"),
          temp->u.bem.dmg.damage * temp->u.bem.duration / (temp->u.bem.duration + temp->u.bem.delay),
          _(dtype_damageTypeToStr(temp->u.bem.dmg.type) ) );
-   if (temp->u.blt.dmg.disable > 0.) {
-      l += scnprintf( &temp->desc_short[l], OUTFIT_SHORTDESC_MAX-l,
-         _("%.0f Disable/s\n"),
-         temp->u.bem.dmg.disable );
-   }
-   l += scnprintf( &temp->desc_short[l], OUTFIT_SHORTDESC_MAX-l,
-         _("%.1f EPS\n"
-         "%.1f Duration %.1f Cooldown\n"
-         "%.0f Range\n"
-         "%.1f second heat up"),
-         temp->u.bem.energy,
-         temp->u.bem.duration, temp->u.bem.delay,
-         temp->u.bem.range,
-         temp->u.bem.heatup);
+   SDESC_COND( l, temp, _("\n%.0f Disable/s"),  temp->u.bem.dmg.disable );
+   SDESC_COND( l, temp, _("\n%.1f EPS"),        temp->u.bem.energy );
+   SDESC_ADD(  l, temp, _("\n%.1f Duration"),   temp->u.bem.duration );
+   SDESC_ADD(  l, temp, _(" (%.1f minimum)"),   temp->u.bem.min_duration );
+   SDESC_ADD(  l, temp, _("\n%.1f Cooldown"),   temp->u.bem.duration );
+   SDESC_ADD(  l, temp, _("\n%s Range"),        num2strU(temp->u.bem.range,0) );
+   SDESC_COND( l, temp, _("\n%.1f second heat up"),temp->u.bem.heatup );
+   if (!outfit_isTurret(temp))
+      SDESC_ADD(  l, temp, _("\n%.1f Degree Swivel"), temp->u.bem.swivel*180./M_PI );
 
 #define MELEMENT(o,s) \
 if (o) WARN( _("Outfit '%s' missing/invalid '%s' element"), temp->name, s) /**< Define to help check for data errors. */
@@ -2616,7 +2607,6 @@ static void outfit_launcherDesc( Outfit* o )
 {
    int l;
    Outfit *a; /* Launcher's ammo. */
-   char stmin[NUM2STRLEN], stmax[NUM2STRLEN];
 
    if (o->desc_short != NULL) {
       WARN(_("Outfit '%s' already has a short description"), o->name);
@@ -2626,67 +2616,37 @@ static void outfit_launcherDesc( Outfit* o )
    a = o->u.lau.ammo;
 
    o->desc_short = malloc( OUTFIT_SHORTDESC_MAX );
-   l = scnprintf( o->desc_short, OUTFIT_SHORTDESC_MAX,
-         _("%s [%s]\n"
-         "%.0f CPU\n"),
-         _(outfit_getType(o)), _(dtype_damageTypeToStr(a->u.amm.dmg.type)),
-         o->cpu );
+   l = 0;
+   SDESC_ADD(  l, o, _("%s [%s]"), _(outfit_getType(o)),
+         _(dtype_damageTypeToStr(a->u.amm.dmg.type)) );
+   SDESC_COND( l, o, _("\n%.0f CPU"), o->cpu );
 
-   num2str( stmin, o->u.lau.trackmin, 0 );
-   num2str( stmax, o->u.lau.trackmax, 0 );
-   if (outfit_isSeeker(o))
-      l += scnprintf( &o->desc_short[l], OUTFIT_SHORTDESC_MAX - l,
-            _("%.1f Second Lock-on\n"
-            "%s Optimal Tracking\n"
-            "%s Minimum Tracking\n"),
-            o->u.lau.lockon, stmax, stmin );
+   if (outfit_isSeeker(o)) {
+      SDESC_ADD(  l, o, _("\n%.1f Second Lock-on"), o->u.lau.lockon );
+      SDESC_ADD(  l, o, _("\n%s Optimal Tracking"), num2strU( o->u.lau.trackmax, 0 ) );
+      SDESC_ADD(  l, o, _("\n%s Minimal Tracking"), num2strU( o->u.lau.trackmin, 0 ) );
+   }
    else {
-      l += scnprintf( &o->desc_short[l], OUTFIT_SHORTDESC_MAX - l,
-            _("No Tracking\n"));
+      SDESC_ADD(  l, o, _("\nNo Seeking") );
       if (outfit_isTurret(o) || o->u.lau.swivel > 0.) {
-         l += scnprintf( &o->desc_short[l], OUTFIT_SHORTDESC_MAX - l,
-               _("%s Optimal Tracking\n"
-               "%s Minimum Tracking\n"),
-               stmax, stmin );
-         if (o->u.lau.swivel > 0.)
-            l += scnprintf( &o->desc_short[l], OUTFIT_SHORTDESC_MAX - l,
-                  _("%.1f Degree Swivel\n"),
-                  o->u.lau.swivel*180./M_PI );
+         SDESC_ADD(  l, o, _("\n%s Optimal Tracking"), num2strU( o->u.lau.trackmax, 0 ) );
+         SDESC_ADD(  l, o, _("\n%s Minimal Tracking"), num2strU( o->u.lau.trackmin, 0 ) );
+         SDESC_COND( l, o, _("\n%.1f Degree Swivel"), o->u.lau.swivel*180./M_PI );
       }
    }
 
-   l += scnprintf( &o->desc_short[l], OUTFIT_SHORTDESC_MAX - l,
-         _("Holds %d %s:\n"
-         "%.0f%% Penetration\n"
-         "%.2f DPS [%.0f Damage]\n"),
-         o->u.lau.amount, _(o->u.lau.ammo_name),
-         a->u.amm.dmg.penetration * 100.,
+   SDESC_ADD(  l, o, _("\nHolds %d %s:"), o->u.lau.amount, _(o->u.lau.ammo_name) );
+   SDESC_ADD(  l, o, _("\n%.0f%% Penetration"), a->u.amm.dmg.penetration * 100. );
+   SDESC_COND( l, o, _("\n%.2f DPS [%.0f Damage]"),
          1. / o->u.lau.delay * a->u.amm.dmg.damage, a->u.amm.dmg.damage );
-
-   if (a->u.amm.dmg.disable > 0.)
-      l += scnprintf( &o->desc_short[l], OUTFIT_SHORTDESC_MAX - l,
-            _("%.1f Disable/s [%.0f Disable]\n"),
-            1. / o->u.lau.delay * a->u.amm.dmg.disable, a->u.amm.dmg.disable );
-
-   num2str( stmin, outfit_range(a), 0 );
-   l += scnprintf( &o->desc_short[l], OUTFIT_SHORTDESC_MAX - l,
-         _("%.1f Shots Per Second\n"
-         "%s Range [%.1f duration]\n"
-         "%.0f Maximum Speed\n"
-         "%.1f Seconds to Reload"),
-         1. / o->u.lau.delay,
-         stmin, a->u.amm.duration,
-         a->u.amm.speed, o->u.lau.reload_time );
-
-   if (a->u.amm.energy > 0.)
-      l += scnprintf( &o->desc_short[l], OUTFIT_SHORTDESC_MAX - l,
-            _("\n%.1f EPS [%.0f Energy]"),
-            o->u.lau.delay * a->u.amm.energy, a->u.amm.energy );
-
-   if (a->u.amm.resist > 0.)
-      l += scnprintf( &o->desc_short[l], OUTFIT_SHORTDESC_MAX - l,
-            _("\n%.1f%% Jam Resistance"),
-            (1. - 0.5 / a->u.amm.resist) * 100.);
+   SDESC_COND( l, o, _("\n%.1f Disable/s [%.0f Disable]"),
+         1. / o->u.lau.delay * a->u.amm.dmg.disable, a->u.amm.dmg.disable );
+   SDESC_ADD(  l, o, _("\n%.1f Shots Per Second"), 1. / o->u.lau.delay );
+   SDESC_ADD(  l, o, _("\n%s Range [%.1f duration]"), num2strU( outfit_range(a), 0 ), a->u.amm.duration );
+   SDESC_ADD(  l, o, _("\n%.0f Maximum Speed"), a->u.amm.speed );
+   SDESC_ADD(  l, o, _("\n%.1f Seconds to Reload"), o->u.lau.reload_time );
+   SDESC_COND( l, o, _("\n%.1f EPS [%.0f Energy]"), o->u.lau.delay * a->u.amm.energy, a->u.amm.energy );
+   SDESC_COND( l, o, _("\n%.1f%% Jam Resistance"), (1. - 0.5 / a->u.amm.resist) * 100.);
 }
 
 

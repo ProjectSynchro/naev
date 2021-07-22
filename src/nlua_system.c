@@ -22,6 +22,7 @@
 #include "log.h"
 #include "map.h"
 #include "map_overlay.h"
+#include "nebula.h"
 #include "nlua_faction.h"
 #include "nlua_jump.h"
 #include "nlua_planet.h"
@@ -40,6 +41,7 @@ static int systemL_name( lua_State *L );
 static int systemL_nameRaw( lua_State *L );
 static int systemL_faction( lua_State *L );
 static int systemL_nebula( lua_State *L );
+static int systemL_interference( lua_State *L );
 static int systemL_jumpdistance( lua_State *L );
 static int systemL_jumpPath( lua_State *L );
 static int systemL_adjacent( lua_State *L );
@@ -70,6 +72,7 @@ static const luaL_Reg system_methods[] = {
    { "nameRaw", systemL_nameRaw },
    { "faction", systemL_faction },
    { "nebula", systemL_nebula },
+   { "interference", systemL_interference },
    { "jumpDist", systemL_jumpdistance },
    { "jumpPath", systemL_jumpPath },
    { "adjacentSystems", systemL_adjacent },
@@ -385,24 +388,38 @@ static int systemL_faction( lua_State *L )
 /**
  * @brief Gets the system's nebula parameters.
  *
- * @usage density, volatility = sys:nebula()
+ * @usage density, volatility, damage = sys:nebula()
  *
  *    @luatparam System s System to get nebula parameters from.
  *    @luatreturn number The density of the system.
  *    @luatreturn number The volatility of the system.
+ *    @luatreturn number The amount of nebula damage done per second.
  * @luafunc nebula
  */
 static int systemL_nebula( lua_State *L )
 {
-   StarSystem *s;
-
-   s = luaL_validsystem(L,1);
+   StarSystem *s = luaL_validsystem(L,1);
 
    /* Push the density and volatility. */
    lua_pushnumber(L, s->nebu_density);
    lua_pushnumber(L, s->nebu_volatility);
 
    return 2;
+}
+
+
+/**
+ * @brief Gets the system's interference level.
+ *
+ *    @luatparam System s System to get interference of.
+ *    @luatreturn number The amount of interference (in percent).
+ * @luafunc interference
+ */
+static int systemL_interference( lua_State *L )
+{
+   StarSystem *s = luaL_validsystem(L,1);
+   lua_pushnumber( L, s->interference );
+   return 1;
 }
 
 

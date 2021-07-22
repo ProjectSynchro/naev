@@ -868,8 +868,9 @@ void pilot_stopBeam( Pilot *p, PilotOutfitSlot *w )
    /* Calculate rate modifier. */
    pilot_getRateMod( &rate_mod, &energy_mod, p, w->outfit );
 
-   /* Beam duration used. */
-   used = w->outfit->u.bem.duration - w->timer;
+   /* Beam duration used. Compensate for the fact it's duration might have
+    * been shortened by heat. */
+   used = w->outfit->u.bem.duration - w->timer*(1.-pilot_heatAccuracyMod(w->heat_T));
 
    w->timer = rate_mod * (used / w->outfit->u.bem.duration) * outfit_delay( w->outfit );
    w->u.beamid = 0;
@@ -884,7 +885,7 @@ void pilot_stopBeam( Pilot *p, PilotOutfitSlot *w )
  *    @param pos Target of the weapon.
  *    @param vel Target's velocity.
  */
-double pilot_weapFlyTime( Outfit *o, Pilot *parent, Vector2d *pos, Vector2d *vel)
+double pilot_weapFlyTime( const Outfit *o, const Pilot *parent, const Vector2d *pos, const Vector2d *vel)
 {
    Vector2d approach_vector, relative_location, orthoradial_vector;
    double speed, radial_speed, orthoradial_speed, dist, t;
@@ -1190,7 +1191,7 @@ static int pilot_shootWeapon( Pilot* p, PilotOutfitSlot* w, double time )
  *    @param o Pilot's outfit.
  */
 void pilot_getRateMod( double *rate_mod, double* energy_mod,
-      Pilot* p, Outfit *o )
+      const Pilot* p, const Outfit *o )
 {
    switch (o->type) {
       case OUTFIT_TYPE_BOLT:
@@ -1425,7 +1426,8 @@ int pilot_outfitOff( Pilot *p, PilotOutfitSlot *o )
       pilot_afterburnOver( p );
    else if (outfit_isBeam( o->outfit )) {
       /* Beams use stimer to represent minimum time until shutdown. */
-      o->stimer = -1;
+      beam_end( p->id, o->u.beamid );
+      pilot_stopBeam(p, o);
    }
    else if (!o->active)
       /* Case of a mod we can't toggle. */

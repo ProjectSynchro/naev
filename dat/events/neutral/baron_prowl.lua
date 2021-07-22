@@ -18,8 +18,8 @@
 function create()
     -- TODO: Change this to the Krieger once the Baron has it. Needs "King" mission first.
     shipname = "Pinnacle"
-    baronship = pilot.add( "Proteron Kahan", "Proteron", planet.get("Ulios"):pos() + vec2.new(-400,-400), nil, "trader" )
-    baronship:setFaction("Civilian")
+    baronship = pilot.add( "Proteron Kahan", "Proteron", planet.get("Ulios"):pos() + vec2.new(-400,-400), nil, {ai="trader"} )
+    baronship:setFaction("Independent")
     baronship:rename(shipname)
     baronship:setInvincible(true)
     baronship:setFriendly()

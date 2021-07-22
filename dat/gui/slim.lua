@@ -329,7 +329,7 @@ function update_target()
       end
 
       if ptargetfact ~= nil and ptargetfact:known() then
-         ptarget_faction_gfx = ptargetfact:logoTiny()
+         ptarget_faction_gfx = ptargetfact:logo()
       end
    end
 end
@@ -355,7 +355,7 @@ function update_nav()
 
       ta_pnt_faction_gfx = nil
       if ta_pntfact and ta_pntfact:known() then
-         ta_pnt_faction_gfx = ta_pntfact:logoTiny()
+         ta_pnt_faction_gfx = ta_pntfact:logo()
       end
 
       planet = { -- Table for convenience.
@@ -787,7 +787,7 @@ function render( dt, dt_mod )
    else
       gfx.renderTex( warnlight5, pl_pane_x + 6, pl_pane_y + 148 )
    end
-   
+
    if autonav then
       gfx.renderTex( warnlight3, pl_pane_x + 162, pl_pane_y + 12 )
    end
@@ -806,7 +806,7 @@ function render( dt, dt_mod )
             gfx.renderRect( slot_x, slot_y, slot_w, slot_h * aset[i].temp, col_heat ) -- Background (heat)
          end
 
-         gfx.renderTexRaw( active_icons[i], slot_x + slot_img_offs_x, slot_y + slot_img_offs_y + 2, slot_img_w, slot_img_w, 1, 1, 0, 0, 1, 1 ) --Image 
+         gfx.renderTexRaw( active_icons[i], slot_x + slot_img_offs_x, slot_y + slot_img_offs_y + 2, slot_img_w, slot_img_w, 1, 1, 0, 0, 1, 1 ) --Image
 
          if aset[i].type == "Afterburner" then
             gfx.renderRect( slot_x, slot_y, slot_w, slot_h * aset[i].temp, col_afb ) -- Foreground (heat)
@@ -900,7 +900,7 @@ function render( dt, dt_mod )
 
             --Faction Logo
             if ptarget_faction_gfx then
-               gfx.renderTex( ptarget_faction_gfx, ta_fact_x, ta_fact_y )
+               gfx.renderTexScale( ptarget_faction_gfx, ta_fact_x, ta_fact_y, 24, 24 )
             end
 
             -- Cargo light cargo_light_off
@@ -1001,7 +1001,7 @@ function render( dt, dt_mod )
       gfx.print( true, _("CLASS:"), ta_pnt_pane_x + 14, ta_pnt_pane_y - 34, col_txt_top )
 
       if ta_pnt_faction_gfx then
-         gfx.renderTex( ta_pnt_faction_gfx, ta_pnt_fact_x, ta_pnt_fact_y )
+         gfx.renderTexScale( ta_pnt_faction_gfx, ta_pnt_fact_x, ta_pnt_fact_y, 24, 24 )
       end
 
       x1, y1 = vec2.get(planet.pos)
@@ -1117,7 +1117,7 @@ function mouse_click( button, x, y, state )
    else
       lmouse = state
       pressed = mouseInsideButton( x, y )
-      
+
       if pressed == nil then
          if not state then
             for _,v in pairs(buttons) do

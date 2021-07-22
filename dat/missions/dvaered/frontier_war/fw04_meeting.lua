@@ -384,11 +384,11 @@ end
 -- Spawn the alpha squadron
 function spawnAlpha()
    alpha = {}
-   alpha[1] = pilot.add( "Hyena", "Dvaered", targpla, _("Captain Leblanc"), "baddie" )
-   alpha[2] = pilot.add( "Hyena", "Dvaered", destpla, _("Lieutenant Strafer"), "baddie" )
-   alpha[3] = pilot.add( "Hyena", "Dvaered", targpla, _("A-NightClaws-3"), "baddie" )
-   alpha[4] = pilot.add( "Hyena", "Dvaered", targpla, _("A-NightClaws-4"), "baddie" )
-   alpha[5] = pilot.add( "Hyena", "Dvaered", destpla, _("A-NightClaws-5"), "baddie" )
+   alpha[1] = pilot.add( "Hyena", "Dvaered", targpla, _("Captain Leblanc"), {ai="baddie"} )
+   alpha[2] = pilot.add( "Hyena", "Dvaered", destpla, _("Lieutenant Strafer"), {ai="baddie"} )
+   alpha[3] = pilot.add( "Hyena", "Dvaered", targpla, _("A-NightClaws-3"), {ai="baddie"} )
+   alpha[4] = pilot.add( "Hyena", "Dvaered", targpla, _("A-NightClaws-4"), {ai="baddie"} )
+   alpha[5] = pilot.add( "Hyena", "Dvaered", destpla, _("A-NightClaws-5"), {ai="baddie"} )
 
    Aidlehooks = {}
    for i, p in ipairs(alpha) do
@@ -478,10 +478,10 @@ function spawnControl()
    theSys = syst[ rnd.rnd(1,#syst) ]
    origin = system.get(theSys)
 
-   types = { "Civilian Gawain", "Civilian Llama", "Civilian Schroedinger", "Civilian Hyena" }
+   types = { "Gawain", "Llama", "Schroedinger", "Hyena" }
    theTyp = types[ rnd.rnd(1,#types) ]
 
-   controls[noCtrl] = pilot.addFleet( theTyp, origin )[1]
+   controls[noCtrl] = pilot.add( theTyp, "Independent", origin )[1]
    controls[noCtrl]:control()
    controls[noCtrl]:land(targpla)
 
@@ -587,7 +587,7 @@ end
 
 -- Spawn Hamelsen in a hyena
 function spawnHam()
-   hamelsen = pilot.add( "Hyena", "Civilian", system.get("Beeklo") , _("Civilian Hyena") )
+   hamelsen = pilot.add( "Hyena", "Independent", system.get("Beeklo") )
    equipHyena( hamelsen )
    hamelsen:control()
    hamelsen:land(targpla)
@@ -597,7 +597,7 @@ function spawnHam()
    hook.timer(500, "proximity", {location = targpos, radius = 10000, funcname = ("incomingHamelsen"), focus = hamelsen})
 
    -- Hamelsen's partner, whose purpose is to make a fight occur
-   jules = pilot.add( "Hyena", "Civilian", system.get("Beeklo") , _("Civilian Hyena") )
+   jules = pilot.add( "Hyena", "Independent", system.get("Beeklo") )
    equipHyena( jules )
    jules:control()
    jules:follow( hamelsen )
@@ -748,9 +748,9 @@ function spawnKillers()
    misn.osdCreate( osd_title, {osd_text5} )
 
    killers = {}
-   killers[1] = pilot.add( "Hyena", "Warlords", haltpla, _("Curiatius"), "baddie_norun" )
-   killers[2] = pilot.add( "Shark", "Warlords", haltpla, _("Curiatius"), "baddie_norun" )
-   killers[3] = pilot.add( "Lancelot", "Warlords", haltpla, _("Curiatius"), "baddie_norun" )
+   killers[1] = pilot.add( "Hyena", "Warlords", haltpla, _("Curiatius"), {ai="baddie_norun"} )
+   killers[2] = pilot.add( "Shark", "Warlords", haltpla, _("Curiatius"), {ai="baddie_norun"} )
+   killers[3] = pilot.add( "Lancelot", "Warlords", haltpla, _("Curiatius"), {ai="baddie_norun"} )
 
    deadkillers = 0
    for i = 1, #killers do

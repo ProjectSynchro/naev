@@ -4,6 +4,7 @@
 local vn = require 'vn'
 local colour = require 'colour'
 local portrait = require 'portrait'
+local mt = require 'merge_tables'
 require 'numstring'
 
 local minerva = {
@@ -31,8 +32,8 @@ local minerva = {
    maikkiP = {
       name = _("Pirate Lord Maikki"),
       description = _("TODO"),
-      portrait = "maikki.png",
-      image = "maikki.png",
+      portrait = "maikki_pirate.webp",
+      image = "maikki_pirate.webp",
       colour = {1, 0.73, 0.97}, -- Pink :D
    },
    terminal = {
@@ -44,11 +45,17 @@ local minerva = {
    },
    pirate = {
       name = _("Sketchy Individual"),
-      realname = _("Zuri"),
-      portrait = "pirate/pirate5.webp", -- TODO REPLACE
+      portrait = "zuri.webp",
       description = _("You see a sketchy-looking individual, they seem to have their gaze on you."),
-      image = portrait.getFullPath("pirate/pirate5.webp"),
-      colour = nil,
+      image = "zuri.webp",
+      colour = {0.73, 1, 0.73},
+   },
+   zuri = {
+      name = _("Zuri"),
+      portrait = "zuri.webp",
+      description = _("You see Zuri who seems to be motioning for you to come."),
+      image = "zuri.webp",
+      colour = {0.73, 1, 0.73},
    },
    -- Secondary characters
    strangelove = {
@@ -59,9 +66,15 @@ local minerva = {
    },
    ceo = {
       name = _("Minerva CEO"),
-      portrait = "minervaceo.png",
-      image = "minervaceo.png",
+      portrait = "minervaceo.webp",
+      image = "minervaceo.webp",
       description = _("The CEO of Minerva Station."),
+      colour = nil,
+   },
+   mole = {
+      name = _("Mole"),
+      portrait = "minervamole.webp",
+      image = "minervamole.webp",
       colour = nil,
    },
 
@@ -93,67 +106,68 @@ local minerva = {
    },
 }
 
-local function _merge_tables( p, params )
-   params = params or {}
-   for k,v in pairs(params) do p[k] = v end
-   return p
-end
-
 -- Helpers to create main characters
 function minerva.vn_cyborg_chicken( params )
    return vn.Character.new( minerva.chicken.name,
-         _merge_tables( {
+         mt.merge_tables( {
             image=minerva.chicken.image,
             color=minerva.chicken.colour,
          }, params) )
 end
 function minerva.vn_kex( params )
    return vn.Character.new( minerva.kex.name,
-         _merge_tables( {
+         mt.merge_tables( {
             image=minerva.kex.image,
             color=minerva.kex.colour,
          }, params) )
 end
 function minerva.vn_maikki( params )
    return vn.Character.new( minerva.maikki.name,
-         _merge_tables( {
+         mt.merge_tables( {
             image=minerva.maikki.image,
             color=minerva.maikki.colour,
          }, params) )
 end
 function minerva.vn_maikkiP( params )
    return vn.Character.new( minerva.maikkiP.name,
-         _merge_tables( {
+         mt.merge_tables( {
             image=minerva.maikkiP.image,
             color=minerva.maikkiP.colour,
          }, params) )
 end
 function minerva.vn_terminal( params )
    return vn.Character.new( minerva.terminal.name,
-         _merge_tables( {
+         mt.merge_tables( {
             image=minerva.terminal.image,
             color=minerva.terminal.colour,
          }, params) )
 end
 function minerva.vn_pirate( params )
    return vn.Character.new( minerva.pirate.name,
-         _merge_tables( {
+         mt.merge_tables( {
             image=minerva.pirate.image,
             color=minerva.pirate.colour,
          }, params) )
 end
 function minerva.vn_zuri( params )
-   return vn.Character.new( minerva.pirate.realname,
-         _merge_tables( {
-            image=minerva.pirate.image,
-            color=minerva.pirate.colour,
+   return vn.Character.new( minerva.zuri.name,
+         mt.merge_tables( {
+            image=minerva.zuri.image,
+            color=minerva.zuri.colour,
          }, params) )
 end
 function minerva.vn_ceo( params )
    return vn.Character.new( minerva.ceo.name,
-         _merge_tables( {
+         mt.merge_tables( {
             image=minerva.ceo.image,
             color=minerva.ceo.colour,
+         }, params) )
+end
+function minerva.vn_mole( params )
+   return vn.Character.new( minerva.mole.name,
+         mt.merge_tables( {
+            image=minerva.mole.image,
+            color=minerva.mole.colour,
          }, params) )
 end
 
