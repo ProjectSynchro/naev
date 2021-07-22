@@ -70,7 +70,14 @@ if buildExec.disabled() == false
    naev_deps += cc.find_library('m', required : false)
 
    sdl = dependency('sdl2', required: true)
-   sdl_image = dependency('SDL2_image', required: true)
+   
+   if get_option('steamruntime')
+      sdl_image = subproject('sdl2_image', static: true)
+      libwebp = dependency('libwebp', required: true, static: true)  # FIXME: required at runtime, but unavailable in the naev-steamruntime build image.
+   else
+      sdl_image = dependency('SDL2_image', required: true)
+      libwebp = dependency('libwebp', required: true)  # FIXME: required at runtime, but unavailable in the naev-steamruntime build image.
+   endif
 
    libxml2 = dependency('libxml-2.0', required: false)
    if not libxml2.found()
@@ -97,7 +104,7 @@ if buildExec.disabled() == false
          dependencies: dependency('libpng', required: true),
          compile_args: '-DNOLOGPRINTFCONSOLE',
          link_args: '-DNOLOGPRINTFCONSOLE'),
-      dependency('libwebp', required: false),  # FIXME: required at runtime, but unavailable in the naev-steamruntime build image.
+      libwebp
    ]
 
    # Lua
