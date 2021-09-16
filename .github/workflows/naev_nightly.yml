@@ -1,8 +1,9 @@
-on:
-  repository_dispatch:
-    types: manual-nightly
-  schedule:
-    - cron: "0 0 * * *"
+on: [push]
+#on:
+#  repository_dispatch:
+#    types: manual-nightly
+#  schedule:
+#    - cron: "0 0 * * *"
 
 name: Nightly Release
 
@@ -253,8 +254,8 @@ jobs:
       matrix:
         include:
           - releasetype: github
-          - releasetype: steam
-          - releasetype: itch
+#          - releasetype: steam
+#          - releasetype: itch
 
     runs-on: ubuntu-latest
 
@@ -269,19 +270,17 @@ jobs:
         Darwin_Naev_Release,
         Steam_Naev_Release,
       ]
-    if: ${{ github.repository == 'naev/naev' }}
+#    if: ${{ github.repository == 'naev/naev' }}
 
     steps:
       - name: Checkout Naev Repository
         uses: actions/checkout@v2
         if: ${{ matrix.releasetype == 'github' }}
 
-      - name: Generate commit changelog
-        uses: Bullrich/generate-release-changelog@2.0.1
-        if: ${{ matrix.releasetype == 'github' }}
+      - name: Generate commit log
         id: changelog
-        env:
-          REPO: ${{ github.repository }}
+        if: ${{ matrix.releasetype == 'github' }}
+        run: echo "::set-output name=changelog::$(git log --since "$(date -d '-1 day')")"
 
       - name: Delete old nightly tag and release.
         uses: dev-drprasad/delete-tag-and-release@v0.1.2
