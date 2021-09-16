@@ -326,7 +326,7 @@ jobs:
           body: ${{ steps.changelog.outputs.changelog }}
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: "nightly"
-          allowUpdates: true
+          allowUpdates: false
           prerelease: true
           removeArtifacts: true
           omitPrereleaseDuringUpdate: true
