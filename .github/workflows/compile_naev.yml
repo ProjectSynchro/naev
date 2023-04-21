@@ -1,0 +1,157 @@
+name: "Compile Naev" 
+on:
+  workflow_call:
+    inputs:
+      platform:
+        required: false
+        type: string
+        default: 'linux-latest'
+      platform_tag:
+        required: false
+        type: string
+        default: 'latest'
+      prefix:
+        required: false
+        type: string
+        default: '/usr'
+      native_file:
+        required: false
+        type: string
+      cross_file:
+        required: false
+        type: string
+      build_type:
+        required: false
+        type: string
+        default: 'debug'
+      wrap_mode:
+        required: false
+        type: string
+        default: 'forcefallback'
+      nightly:
+        required: false
+        type: boolean
+        default: false
+      auto_features:
+        required: false
+        type: string
+        default: 'enabled'
+      lto:
+        required: false
+        type: string
+        default: 'enabled'
+      c_docs:
+        required: false
+        type: string
+        default: 'disabled'
+      lua_docs:
+        required: false
+        type: string
+        default: 'disabled'
+      executable:
+        required: false
+        type: string
+        default: 'enabled'
+      appimage:
+        required: false
+        type: boolean
+        default: false
+      compile:
+        required: false
+        type: boolean
+        default: true
+      install:
+        required: false
+        type: boolean
+        default: true
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+    container:
+      image: 'ghcr.io/naev/naev-${{ inputs.platform }}:${{ inputs.platform_tag }}'
+    steps:
+      - name: Get Source
+        uses: actions/checkout@v2
+        with:
+          path: source
+          submodules: true
+      - name: Meson Setup
+        if: inputs.cross_file == ''
+        id: setup
+        run: |
+          FILE='source/utils/build/${{ inputs.native_file }}.ini'
+          meson setup build source \
+              --prefix='${{ inputs.prefix }}'
+              --native-file=$FILE \
+              --buildtype='${{ inputs.build_type }}' \
+              --wrap-mode='${{ inputs.wrap_mode }}' \
+              -Dnightly='${{ inputs.nightly }}' \
+              -Db_lto='${{ inputs.lto }}' \
+              -Dauto_features='${{ inputs.auto_features }}' \
+              -Ddocs_c='${{ inputs.c_docs }}' \
+              -Ddocs_lua='${{ inputs.lua_docs }}'
+
+      - name: Meson Setup (Cross-compiling)
+        if: inputs.native_file == ''
+        id: setup_cross
+        run: |
+          FILE='source/utils/build/${{ inputs.cross_file }}.ini'
+          meson setup build source \
+              --prefix='${{ inputs.prefix }}'
+              --cross-file=$FILE \
+              --buildtype='${{ inputs.build_type }}' \
+              --wrap-mode='${{ inputs.wrap_mode }}' \
+              -Dnightly='${{ inputs.nightly }}' \
+              -Db_lto='${{ inputs.lto }}' \
+              -Dauto_features='${{ inputs.auto_features }}' \
+              -Ddocs_c='${{ inputs.c_docs }}' \
+              -Ddocs_lua='${{ inputs.lua_docs }}'
+
+      - name: Upload Setup Log
+        uses: actions/upload-artifact@v2
+        if: success() || steps.setup.outcome == 'failure' || steps.setup_cross.outcome == 'failure'
+        with:
+          name: naev-${{ inputs.platform }}-${{ github.sha }}-setup-log
+          path: ${{ github.workspace }}/build/meson-logs/meson-log.txt
+      - name: Meson Compile
+        if: ${{ inputs.compile == 'true' }}
+        id: compile
+        run: |
+          meson compile -C build
+      - name: Upload Compile Log
+        uses: actions/upload-artifact@v2
+        if: (success() || steps.compile.outcome == 'failure') && inputs.compile == 'true'
+        with:
+          name: naev-${{ inputs.platform }}-${{ github.sha }}-compile-log
+          path: ${{ github.workspace }}/build/meson-logs/meson-log.txt
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: naev-${{ inputs.platform }}-${{ github.sha }}-buildArtifacts
+          path: |
+            ${{ github.workspace }}/build
+      - name: Test Install
+        if: ${{ inputs.install == 'true' }}
+        id: install
+        run: |
+          meson install -C build
+        env:
+          DESTDIR: "${{ github.workspace }}/staging"
+      - name: Upload Install Log
+        uses: actions/upload-artifact@v2
+        if: (success() || steps.install.outcome == 'failure') && inputs.install == 'true'
+        with:
+          name: naev-${{ inputs.platform }}-${{ github.sha }}-install-log
+          path: ${{ github.workspace }}/build/meson-logs/meson-log.txt
+      - name: Compile AppImage
+        if: ${{ inputs.appimage == 'true' }}
+        id: appimageCompile
+        run: |
+          ./source/utils/buildAppImage.sh -c -m -s source -b appImageBuild | tee appImageBuildLog.txt
+      - name: Upload AppImage Compile Log
+        uses: actions/upload-artifact@v2
+        if: (success() || steps.appimageCompile.outcome == 'failure') && inputs.appimage == 'true'
+        with:
+          name: naev-${{ inputs.platform }}-${{ github.sha }}-AppImageBuild-log
+          path: |
+            ${{ github.workspace }}/appImageBuildLog.txt
