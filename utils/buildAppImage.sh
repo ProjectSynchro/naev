@@ -3,7 +3,7 @@
 # AppImage BUILD SCRIPT FOR NAEV
 #
 # For more information, see http://appimage.org/
-# Pass in [-d] [-c] (set this for debug builds) [-n] (set this for nightly builds) -s <SOURCEPATH> (Sets location of source) -b <BUILDPATH> (Sets location of build directory)
+# Pass in [-d] (set this for debug builds) [-n] (set this for nightly builds) -s <SOURCEPATH> (Sets location of source) -b <BUILDPATH> (Sets location of build directory)
 
 # Output destination is ${WORKPATH}/dist
 
@@ -12,17 +12,19 @@ set -e
 # Defaults
 SOURCEPATH="$(pwd)"
 BUILDTYPE="release"
+APPDIRONLY="false"
 
-while getopts dcns:b: OPTION "$@"; do
+while getopts dans:b: OPTION "$@"; do
     case $OPTION in
     d)
         set -x
+        BUILDTYPE="debug"
         ;;
-    c)
-        BUILDTYPE="debugoptimized"
+    a)
+        APPDIRONLY="true"
         ;;
     n)
-        BUILDTYPE="debug"
+        BUILDTYPE="debugoptimized"
         ;;
     s)
         SOURCEPATH="${OPTARG}"
@@ -139,13 +141,18 @@ export UPDATE_INFORMATION="gh-releases-zsync|naev|naev|$TAG|naev-*.AppImage.zsyn
 
 pushd "$WORKPATH"
 
-"$linuxdeploy" \
-    --appdir "$DESTDIR" \
-    --output appimage
-
-# Move zsync file to dist directory
-mv ./*.zsync "$WORKPATH"/dist
+if [[ "$APPDIRONLY" =~ "true" ]]; then
+    "$linuxdeploy" \
+        --appdir "$DESTDIR"
+else
+    "$linuxdeploy" \
+        --appdir "$DESTDIR" \
+        --output appimage
+    # Move zsync file to dist directory
+    mv ./*.zsync "$WORKPATH"/dist
+    # Mark AppImage as executable
+    chmod +x "$OUTPUT"
+fi
 popd
 
-# Mark AppImage as executable
-chmod +x "$OUTPUT"
+echo "Completed."
