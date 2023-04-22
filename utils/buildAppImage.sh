@@ -125,7 +125,9 @@ build_appdir(){
     DESTDIR=$APPDIRPATH "$MESON" install -C "$BUILDPATH"
     # Rename metainfo file
     mv "$APPDIRPATH/usr/share/metainfo/org.naev.Naev.metainfo.xml" "$APPDIRPATH/usr/share/metainfo/org.naev.Naev.appdata.xml"
+    pushd "$WORKPATH"
     "$linuxdeploy" --appdir "$APPDIRPATH"
+    popd
 
 }
 
