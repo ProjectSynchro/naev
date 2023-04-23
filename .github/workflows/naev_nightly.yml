@@ -98,11 +98,8 @@ jobs:
 
       - name: Extract Source
         run: |
-          ls -l
-          cd naev-dist
-          ls -l
           mkdir source
-          tar -xf ${{ github.workspace }}/naev-dist/naev-*.tar.xz -C source --strip 1
+          tar -xf naev-dist/source.tar.xz -C source --strip 1
 
       - name: Meson Setup
         run: |
