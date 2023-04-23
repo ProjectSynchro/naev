@@ -182,10 +182,10 @@ jobs:
 
       - name: Package AppImage
         run: |
-              chmod +x buildAppImage.sh
-              tar -Jxf "naev-linux-appdir-x86-64/naev-linux-appdir-x86-64.tar.xz"
+              chmod +x naev-appimage-packaging/buildAppImage.sh
+              tar -Jxf "naev-linux-appdir-x86-64/naev-appdir.tar.xz"
               ls
-              ./buildAppImage.sh -d -n -a "./AppDir" -b build
+              ./naev-appimage-packaging/buildAppImage.sh -d -n -a "./AppDir" -b build
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
