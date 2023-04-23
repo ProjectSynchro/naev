@@ -157,7 +157,11 @@ jobs:
           path: "${{ github.workspace }}/build/dist/appdir.tar.xz"
 
   "Linux_Package_Release":
-    needs: "Package_Source"
+    needs:
+      [
+        Package_Source,
+        Linux_Naev_Release
+      ]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -305,10 +309,9 @@ jobs:
     needs:
       [
         Package_Source,
-        Linux_Naev_Release,
+        Linux_Package_Release,
         Windows_Naev_Release,
         Darwin_Naev_Release,
-        Steam_Naev_Release,
       ]
     if: ${{ github.repository == 'naev/naev' }}
 
