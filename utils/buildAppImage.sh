@@ -76,7 +76,7 @@ echo "BUILDTYPE:           $BUILDTYPE"
 echo "MESON WRAPPER PATH:  $MESON"
 
 # Make temp directories
-mkdir -p "$WORKPATH"/{dist,utils,AppDir}
+mkdir -p "$WORKPATH"/{dist,utils}
 
 # Get arch for use with linuxdeploy and to help make the linuxdeploy URL more architecture agnostic.
 ARCH=$(arch)
