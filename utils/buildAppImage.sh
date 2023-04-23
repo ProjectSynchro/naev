@@ -11,7 +11,6 @@ set -e
 
 # Defaults
 SOURCEPATH="$(pwd)"
-APPDIRPATH="$(pwd)/AppDir"
 BUILDTYPE="release"
 MAKEAPPIMAGE="false"
 PACKAGE="false"
@@ -54,7 +53,7 @@ else
 fi
 
 if [ -z "$APPDIRPATH" ]; then
-    APPDIRPATH="$WORKPATH/AppDir"
+    APPDIRPATH="$WORKPATH/dist/AppDir"
 else
     APPDIRPATH=$(readlink -mf "$APPDIRPATH")
 fi
