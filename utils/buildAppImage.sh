@@ -112,7 +112,7 @@ get_tools(){
 
 build_appdir(){
     "$MESON" setup "$BUILDPATH" "$SOURCEPATH" \
-    --native-file "$SOURCEPATH/utils/build/linux.ini" \
+    --native-file "$SOURCEPATH/utils/build/linux_steamruntime_scout.ini" \
     --buildtype "$BUILDTYPE" \
     --force-fallback-for=glpk,SuiteSparse \
     -Dprefix="/usr" \
