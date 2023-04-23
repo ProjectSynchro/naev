@@ -22,7 +22,8 @@ while getopts dnipa:s:b: OPTION "$@"; do
         BUILDTYPE="debug"
         ;;
     n)
-        BUILDTYPE="debugoptimized"
+        NIGHTLY="true"
+        BUILDTYPE="debug"
         ;;
     i)
         MAKEAPPIMAGE="true"
@@ -60,12 +61,6 @@ fi
 
 BUILDPATH="$WORKPATH/builddir"
 
-# Honours the MESON variable set by the environment before setting it manually
-
-if [ -z "$MESON" ]; then
-    MESON="$SOURCEPATH/meson.sh"
-fi
-
 # Output configured variables
 
 echo "SCRIPT WORKING PATH: $WORKPATH"
@@ -73,7 +68,6 @@ echo "APPDIR PATH:         $APPDIRPATH"
 echo "SOURCE PATH:         $SOURCEPATH"
 echo "BUILD PATH:          $BUILDPATH"
 echo "BUILDTYPE:           $BUILDTYPE"
-echo "MESON WRAPPER PATH:  $MESON"
 
 # Make temp directories
 mkdir -p "$WORKPATH"/{dist,utils}
@@ -111,6 +105,12 @@ get_tools(){
 }
 
 build_appdir(){
+    # Honours the MESON variable set by the environment before setting it manually
+
+    if [ -z "$MESON" ]; then
+        MESON="$SOURCEPATH/meson.sh"
+    fi
+
     "$MESON" setup "$BUILDPATH" "$SOURCEPATH" \
     --native-file "$SOURCEPATH/utils/build/linux_steamruntime_scout.ini" \
     --buildtype "$BUILDTYPE" \
