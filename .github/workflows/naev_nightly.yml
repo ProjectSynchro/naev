@@ -154,7 +154,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: naev-linux-appdir-x86-64
-          path: "${{ github.workspace }}/build/dist/appdir.tar.xz"
+          path: "${{ github.workspace }}/build/dist/naev-appdir.tar.xz"
 
   "Linux_Package_Release":
     needs:
