@@ -184,7 +184,7 @@ jobs:
         run: |
               chmod +x buildAppImage.sh
               tar -Jxf naev-appdir.tar.xz
-              ./buildAppImage.sh -d -n -a "./AppDir" -b build
+              ./buildAppImage.sh -d -n -p -a "./AppDir" -b build
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
